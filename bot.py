@@ -388,18 +388,32 @@ def build_caption(
     show_desc: bool,
     show_stats: bool,
     sender_name: str = "",
+    sender_username: str = "",
 ) -> str:
     parts = []
-    if sender_name:
-        parts.append(f"👤 <b>{sender_name}</b>")
+
     if show_stats and stats_str:
-        sep = "\n" if parts else ""
-        parts.append(f"{sep}{stats_str}")
+        parts.append(stats_str)
+
     if show_desc and description:
         sep = "\n\n" if parts else ""
         parts.append(f"{sep}📝 {description}")
+
     link_line = f"🔗 <a href='{url}'>Оригинал</a>  •  🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
     parts.append(f"\n\n{link_line}" if parts else link_line)
+
+    # Кто поделился — курсив, мелко, после основного блока
+    if sender_name:
+        if sender_username:
+            sender_line = (
+                f"\n\n<i><a href='https://t.me/{sender_username}'>"
+                f"{sender_name}"
+                f"</a></i>"
+            )
+        else:
+            sender_line = f"\n\n<i>{sender_name}</i>"
+        parts.append(sender_line)
+
     return "".join(parts)
 
 
@@ -462,6 +476,7 @@ async def process_and_send_video(
     url: str,
     reply_to: int | None = None,
     sender_name: str = "",
+    sender_username: str = "",
 ) -> None:
     chat_id = update.effective_chat.id
     prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
@@ -550,6 +565,7 @@ async def process_and_send_video(
                 url=url, description=r["description"], stats_str=stats_str,
                 show_desc=prefs["desc"], show_stats=prefs["stats"],
                 sender_name=sender_name,
+                sender_username=sender_username,
             )
 
             try:
@@ -687,6 +703,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             stats_str=data["stats_str"],
             show_desc=data["show_desc"], show_stats=data["show_stats"],
             sender_name=data.get("sender_name", ""),
+            sender_username=data.get("sender_username", ""),
         )
         try:
             sent = await context.bot.send_video(
@@ -798,6 +815,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             url=data["url"], description=data["description"],
             stats_str=data["stats_str"], show_desc=sd, show_stats=ss,
             sender_name=data.get("sender_name", ""),
+            sender_username=data.get("sender_username", ""),
         )
         kb = make_toggle_keyboard(chat_id, msg_id, sd, ss, back=data["is_kk"])
         await query.edit_message_caption(
@@ -876,12 +894,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
         return
     sender_name = ""
+    sender_username = ""
     if update.effective_chat.type in ("group", "supergroup"):
         user = msg.from_user
         if user:
-            sender_name = user.full_name or user.first_name or ""
+            sender_name    = user.full_name or user.first_name or ""
+            sender_username = user.username or ""
     await process_and_send_video(
-        update, context, url, reply_to=msg.message_id, sender_name=sender_name,
+        update, context, url, reply_to=msg.message_id,
+        sender_name=sender_name, sender_username=sender_username,
     )
 
 
