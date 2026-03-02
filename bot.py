@@ -10,6 +10,7 @@ import logging
 import asyncio
 import tempfile
 import subprocess
+import threading
 from pathlib import Path
 
 import yt_dlp
@@ -90,6 +91,10 @@ def is_kk_platform(url: str) -> bool:
     return bool(re.search(r"(instagram\.com|tiktok\.com)", url, re.IGNORECASE))
 
 
+def is_youtube(url: str) -> bool:
+    return bool(re.search(r"(youtube\.com|youtu\.be)", url, re.IGNORECASE))
+
+
 def to_kk_url(url: str) -> str:
     """
     Заменяет 'www.' на 'kk' в URL.
@@ -109,17 +114,20 @@ def to_kk_url(url: str) -> str:
 
 
 # ─── FFmpeg-обработка ─────────────────────────────────────────────────────────
-def strip_metadata(input_path: str, output_path: str) -> bool:
+def strip_metadata(input_path: str, output_path: str, reencode: bool = False) -> bool:
     """
-    Перекодирует видео для Telegram:
-    - убирает все метаданные (нет плашки 'Video by ...')
-    - конвертирует в yuv420p (8-бит) — единственный формат без артефактов
-    - moov atom в начале файла (faststart) — нет белого экрана при старте
-    - аудио копируется без перекодировки
+    Обрабатывает видео для Telegram.
+
+    reencode=False (TikTok, Instagram и др.) — быстро:
+        просто убирает метаданные и переставляет moov в начало, потоки копируются.
+
+    reencode=True (YouTube) — медленнее, зато надёжно:
+        перекодирует в yuv420p/libx264 — исправляет белый экран и стопкадр
+        у Shorts и других роликов с нестандартным pixel format.
     """
     try:
-        result = subprocess.run(
-            [
+        if reencode:
+            cmd = [
                 "ffmpeg", "-y",
                 "-i", input_path,
                 "-map_metadata", "-1",
@@ -134,10 +142,22 @@ def strip_metadata(input_path: str, output_path: str) -> bool:
                 "-c:a", "copy",
                 "-movflags", "+faststart",
                 output_path,
-            ],
-            capture_output=True,
-            timeout=300,
-        )
+            ]
+            timeout = 300
+        else:
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", input_path,
+                "-map_metadata", "-1",
+                "-map", "0:v?",
+                "-map", "0:a?",
+                "-c", "copy",
+                "-movflags", "+faststart",
+                output_path,
+            ]
+            timeout = 60
+
+        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
         if result.returncode != 0:
             logger.error(f"ffmpeg stderr: {result.stderr.decode()[-500:]}")
         return result.returncode == 0
@@ -158,8 +178,18 @@ def format_number(n) -> str:
 
 
 # ─── Скачивание ───────────────────────────────────────────────────────────────
-def download_video(url: str, output_dir: str) -> dict | None:
+class DownloadCancelled(Exception):
+    pass
+
+
+def download_video(url: str, output_dir: str, cancel_event: threading.Event | None = None, reencode: bool = False) -> dict | None:
     output_template = os.path.join(output_dir, "%(id)s.%(ext)s")
+
+    def progress_hook(d):
+        """Вызывается yt-dlp во время загрузки. Бросает исключение при отмене."""
+        if cancel_event and cancel_event.is_set():
+            raise DownloadCancelled("Отменено пользователем")
+
     ydl_opts = {
         "format": VIDEO_FORMAT,
         "outtmpl": output_template,
@@ -169,6 +199,7 @@ def download_video(url: str, output_dir: str) -> dict | None:
         "max_filesize": MAX_FILE_SIZE_BYTES,
         "merge_output_format": "mp4",
         "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
+        "progress_hooks": [progress_hook],
         "http_headers": {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -194,7 +225,7 @@ def download_video(url: str, output_dir: str) -> dict | None:
                 filename = str(files[0])
 
             clean_path = os.path.join(output_dir, "clean.mp4")
-            if strip_metadata(filename, clean_path) and Path(clean_path).exists():
+            if strip_metadata(filename, clean_path, reencode=reencode) and Path(clean_path).exists():
                 filename = clean_path
 
             if Path(filename).stat().st_size > MAX_FILE_SIZE_BYTES:
@@ -225,6 +256,9 @@ def download_video(url: str, output_dir: str) -> dict | None:
                 "uploader":      info.get("uploader") or info.get("channel") or "",
             }
 
+    except DownloadCancelled:
+        logger.info(f"Скачивание отменено: {url}")
+        return None
     except yt_dlp.utils.DownloadError as e:
         logger.error(f"DownloadError: {e}")
         return None
@@ -321,6 +355,12 @@ def make_toggle_keyboard(
     return InlineKeyboardMarkup(rows)
 
 
+def make_cancel_keyboard(chat_id: int, status_msg_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("🚫 Отмена", callback_data=f"cancel:{chat_id}:{status_msg_id}"),
+    ]])
+
+
 # ─── Отправка видео ────────────────────────────────────────────────────────────
 async def process_and_send_video(
     update: Update,
@@ -332,104 +372,133 @@ async def process_and_send_video(
     chat_id = update.effective_chat.id
     prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
     kk      = is_kk_platform(url)
+    reencode = is_youtube(url)   # перекодируем только YouTube
 
+    # Отправляем статусное сообщение с кнопкой Отмена
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
         text="⏳ Скачиваю видео, подожди немного...",
         reply_to_message_id=reply_to,
+        reply_markup=make_cancel_keyboard(chat_id, 0),  # временный id, обновим ниже
+    )
+    # Обновляем клавиатуру с реальным msg_id статусного сообщения
+    await context.bot.edit_message_reply_markup(
+        chat_id=chat_id,
+        message_id=status_msg.message_id,
+        reply_markup=make_cancel_keyboard(chat_id, status_msg.message_id),
     )
     await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_VIDEO)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        loop = asyncio.get_event_loop()
-        r = await loop.run_in_executor(None, download_video, url, tmpdir)
+    # Создаём событие отмены и сохраняем в bot_data
+    cancel_event = threading.Event()
+    cancel_key   = f"cancel:{chat_id}:{status_msg.message_id}"
+    context.bot_data[cancel_key] = cancel_event
 
-        # ── Instagram/TikTok fallback через kk ──────────────────────────────
-        if r is None and kk:
-            kk_url = to_kk_url(url)
-            await status_msg.edit_text(
-                "⚠️ Не удалось скачать напрямую.\n"
-                "⏳ Пробую через kk...",
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            loop = asyncio.get_event_loop()
+            r = await loop.run_in_executor(
+                None, download_video, url, tmpdir, cancel_event, reencode
             )
-            try:
-                sent_kk = await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=(
-                        f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
-                        f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
-                    ),
-                    parse_mode=ParseMode.HTML,
-                    reply_to_message_id=reply_to,
-                    disable_web_page_preview=False,
-                )
-                await status_msg.delete()
+
+            # Если пользователь нажал Отмена — событие уже обработано в on_callback,
+            # статусное сообщение уже удалено; просто выходим тихо.
+            if cancel_event.is_set():
                 return
-            except TelegramError as e:
-                logger.error(f"kk fallback error: {e}")
-            # Если и kk не сработал — общая ошибка
 
-        if r is None:
-            await status_msg.edit_text(
-                "❌ Не удалось скачать видео.\n\n"
-                "▪️ Видео недоступно или удалено\n"
-                "▪️ Файл больше 50 МБ\n"
-                "▪️ Сервис временно недоступен\n\n"
-                f"🔗 <a href='{url}'>Открыть по ссылке</a>",
-                parse_mode=ParseMode.HTML,
-            )
-            return
-
-        stats_str = build_stats_str(r)
-        caption   = build_caption(
-            url=url,
-            description=r["description"],
-            stats_str=stats_str,
-            show_desc=prefs["desc"],
-            show_stats=prefs["stats"],
-            sender_name=sender_name,
-        )
-
-        try:
-            with open(r["path"], "rb") as vf:
-                sent = await context.bot.send_video(
-                    chat_id=chat_id,
-                    video=vf,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                    duration=r.get("duration"),
-                    width=r.get("width"),
-                    height=r.get("height"),
-                    supports_streaming=True,
-                    reply_to_message_id=reply_to,
+            # ── Instagram/TikTok fallback через kk ──────────────────────────
+            if r is None and kk:
+                kk_url = to_kk_url(url)
+                await status_msg.edit_text(
+                    "⚠️ Не удалось скачать напрямую.\n"
+                    "⏳ Пробую через kk...",
+                    reply_markup=make_cancel_keyboard(chat_id, status_msg.message_id),
                 )
+                try:
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=(
+                            f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
+                            f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+                        ),
+                        parse_mode=ParseMode.HTML,
+                        reply_to_message_id=reply_to,
+                        disable_web_page_preview=False,
+                    )
+                    await status_msg.delete()
+                    return
+                except TelegramError as e:
+                    logger.error(f"kk fallback error: {e}")
 
-            # Обновляем клавиатуру с правильным msg_id
-            kb = make_main_keyboard(chat_id, sent.message_id, is_kk=kk)
-            await context.bot.edit_message_reply_markup(
-                chat_id=chat_id, message_id=sent.message_id, reply_markup=kb
+            if r is None:
+                await status_msg.edit_text(
+                    "❌ Не удалось скачать видео.\n\n"
+                    "▪️ Видео недоступно или удалено\n"
+                    "▪️ Файл больше 50 МБ\n"
+                    "▪️ Сервис временно недоступен\n\n"
+                    f"🔗 <a href='{url}'>Открыть по ссылке</a>",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=None,
+                )
+                return
+
+            stats_str = build_stats_str(r)
+            caption   = build_caption(
+                url=url,
+                description=r["description"],
+                stats_str=stats_str,
+                show_desc=prefs["desc"],
+                show_stats=prefs["stats"],
+                sender_name=sender_name,
             )
 
-            # Сохраняем данные для кнопок
-            context.bot_data[f"vid:{chat_id}:{sent.message_id}"] = {
-                "url":          url,
-                "kk_url":       to_kk_url(url) if kk else "",
-                "is_kk":        kk,
-                "title":        r["title"],
-                "description":  r["description"],
-                "stats_str":    stats_str,
-                "show_desc":    prefs["desc"],
-                "show_stats":   prefs["stats"],
-                "sender_name":  sender_name,
-            }
-            await status_msg.delete()
+            try:
+                # Обновляем статус перед загрузкой файла
+                await status_msg.edit_text(
+                    "📤 Отправляю видео...",
+                    reply_markup=make_cancel_keyboard(chat_id, status_msg.message_id),
+                )
+                with open(r["path"], "rb") as vf:
+                    sent = await context.bot.send_video(
+                        chat_id=chat_id,
+                        video=vf,
+                        caption=caption,
+                        parse_mode=ParseMode.HTML,
+                        duration=r.get("duration"),
+                        width=r.get("width"),
+                        height=r.get("height"),
+                        supports_streaming=True,
+                        reply_to_message_id=reply_to,
+                    )
 
-        except TelegramError as e:
-            logger.error(f"Ошибка отправки: {e}")
-            await status_msg.edit_text(
-                "❌ Не удалось отправить (файл слишком большой).\n\n"
-                f"🔗 <a href='{url}'>Смотри по ссылке</a>",
-                parse_mode=ParseMode.HTML,
-            )
+                kb = make_main_keyboard(chat_id, sent.message_id, is_kk=kk)
+                await context.bot.edit_message_reply_markup(
+                    chat_id=chat_id, message_id=sent.message_id, reply_markup=kb
+                )
+                context.bot_data[f"vid:{chat_id}:{sent.message_id}"] = {
+                    "url":         url,
+                    "kk_url":      to_kk_url(url) if kk else "",
+                    "is_kk":       kk,
+                    "title":       r["title"],
+                    "description": r["description"],
+                    "stats_str":   stats_str,
+                    "show_desc":   prefs["desc"],
+                    "show_stats":  prefs["stats"],
+                    "sender_name": sender_name,
+                }
+                await status_msg.delete()
+
+            except TelegramError as e:
+                logger.error(f"Ошибка отправки: {e}")
+                await status_msg.edit_text(
+                    "❌ Не удалось отправить (файл слишком большой).\n\n"
+                    f"🔗 <a href='{url}'>Смотри по ссылке</a>",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=None,
+                )
+    finally:
+        # Всегда чистим ключ отмены
+        context.bot_data.pop(cancel_key, None)
 
 
 # ─── Callbacks ────────────────────────────────────────────────────────────────
@@ -439,6 +508,29 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await query.answer()
     parts  = query.data.split(":")
     action = parts[0]
+
+    # ── Отмена скачивания ────────────────────────────────────────────────────
+    if action == "cancel":
+        if len(parts) < 3:
+            return
+        c_chat_id   = int(parts[1])
+        c_status_id = int(parts[2])
+        cancel_key  = f"cancel:{c_chat_id}:{c_status_id}"
+
+        cancel_event: threading.Event | None = context.bot_data.pop(cancel_key, None)
+        if cancel_event:
+            cancel_event.set()   # сигнализируем потоку остановиться
+
+        # Удаляем статусное сообщение (оно же несёт кнопку «Отмена»)
+        try:
+            await context.bot.delete_message(
+                chat_id=c_chat_id, message_id=c_status_id
+            )
+        except TelegramError:
+            pass   # уже удалено или недоступно
+
+        await query.answer("🚫 Отменено", show_alert=False)
+        return
 
     # ── /settings кнопки (pref:*) ────────────────────────────────────────────
     if action == "pref":
