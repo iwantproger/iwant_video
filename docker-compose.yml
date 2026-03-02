@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  videobot:
+    build: .
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - BOT_USERNAME=${BOT_USERNAME}
+    volumes:
+      - /tmp/videobot:/tmp   # кэш для временных файлов
