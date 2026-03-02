@@ -430,7 +430,7 @@ def make_main_keyboard(
     sender_user_id: int = 0,
 ) -> InlineKeyboardMarkup:
     del_btn = InlineKeyboardButton(
-        "🗑️", callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}"
+        "🗑️ Удалить", callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}"
     )
     if is_kk:
         bot_label = "🤖 Через Бот ✅" if not kk_active else "🤖 Через Бот"
@@ -439,9 +439,9 @@ def make_main_keyboard(
             [
                 InlineKeyboardButton(bot_label, callback_data=f"sw_bot:{chat_id}:{msg_id}"),
                 InlineKeyboardButton(kk_label,  callback_data=f"sw_kk:{chat_id}:{msg_id}"),
-                del_btn,
             ],
             [InlineKeyboardButton("ℹ️ Доп.инфа", callback_data=f"info:{chat_id}:{msg_id}")],
+            [del_btn],
         ])
     else:
         return make_toggle_keyboard(
@@ -459,13 +459,12 @@ def make_toggle_keyboard(
     d = "✅" if show_desc  else "☑️"
     s = "✅" if show_stats else "☑️"
     del_btn = InlineKeyboardButton(
-        "🗑️", callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}"
+        "🗑️ Удалить", callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}"
     )
     rows = [
         [
             InlineKeyboardButton(f"{d} Описание",   callback_data=f"tog:{chat_id}:{msg_id}:desc"),
             InlineKeyboardButton(f"{s} Статистика", callback_data=f"tog:{chat_id}:{msg_id}:stats"),
-            del_btn,
         ],
         [
             InlineKeyboardButton("✅ Всё",           callback_data=f"tog:{chat_id}:{msg_id}:all"),
@@ -474,6 +473,7 @@ def make_toggle_keyboard(
     ]
     if back:
         rows.append([InlineKeyboardButton("← Назад", callback_data=f"back:{chat_id}:{msg_id}")])
+    rows.append([del_btn])
     return InlineKeyboardMarkup(rows)
 
 
@@ -497,6 +497,7 @@ async def process_and_send_video(
         text="⏳ Скачиваю видео, подожди немного...",
         reply_to_message_id=reply_to,
         reply_markup=make_cancel_keyboard(chat_id, 0),
+        disable_notification=True,
     )
     await context.bot.edit_message_reply_markup(
         chat_id=chat_id, message_id=status_msg.message_id,
@@ -552,6 +553,7 @@ async def process_and_send_video(
                         parse_mode=ParseMode.HTML,
                         reply_to_message_id=reply_to,
                         disable_web_page_preview=False,
+                        disable_notification=True,
                     )
                     await status_msg.delete()
                     return
@@ -590,6 +592,7 @@ async def process_and_send_video(
                         width=r.get("width"), height=r.get("height"),
                         supports_streaming=True,
                         reply_to_message_id=reply_to,
+                        disable_notification=True,
                     )
 
                 kb = make_main_keyboard(chat_id, sent.message_id, is_kk=kk, kk_active=False, sender_user_id=sender_user_id)
@@ -772,6 +775,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 width=data.get("width"), height=data.get("height"),
                 supports_streaming=True,
                 reply_to_message_id=data.get("reply_to"),
+                disable_notification=True,
             )
             # Удаляем старое сообщение бота (если существует, кроме текущего)
             if data.get("bot_msg_id") and data["bot_msg_id"] != sent.message_id:
@@ -823,6 +827,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 parse_mode=ParseMode.HTML,
                 reply_to_message_id=data.get("reply_to"),
                 disable_web_page_preview=False,
+                disable_notification=True,
             )
             new_kk_msg_id = sent_kk.message_id
 
@@ -1004,7 +1009,7 @@ async def chosen_inline_result(update: Update, context: ContextTypes.DEFAULT_TYP
     prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
     kk      = is_kk_platform(url)
     try:
-        await context.bot.send_message(chat_id=user_id, text=f"⏳ Скачиваю...\n🔗 {url}")
+        await context.bot.send_message(chat_id=user_id, text=f"⏳ Скачиваю...\n🔗 {url}", disable_notification=True)
         with tempfile.TemporaryDirectory() as tmpdir:
             r = await asyncio.get_event_loop().run_in_executor(
                 None, download_video, url, tmpdir
@@ -1022,6 +1027,7 @@ async def chosen_inline_result(update: Update, context: ContextTypes.DEFAULT_TYP
                         duration=r.get("duration"),
                         width=r.get("width"), height=r.get("height"),
                         supports_streaming=True,
+                        disable_notification=True,
                     )
                 file_id = sent.video.file_id if sent.video else None
                 kb = make_main_keyboard(user_id, sent.message_id, is_kk=kk, kk_active=False)
@@ -1039,7 +1045,7 @@ async def chosen_inline_result(update: Update, context: ContextTypes.DEFAULT_TYP
                     "width": r.get("width"), "height": r.get("height"), "reply_to": None,
                 }
             else:
-                await context.bot.send_message(chat_id=user_id, text=f"❌ Не удалось скачать.\n🔗 {url}")
+                await context.bot.send_message(chat_id=user_id, text=f"❌ Не удалось скачать.\n🔗 {url}", disable_notification=True)
     except TelegramError as e:
         logger.error(f"chosen_inline_result error: {e}")
 
