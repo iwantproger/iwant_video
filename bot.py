@@ -41,7 +41,10 @@ MAX_FILE_SIZE_MB    = 50
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 VIDEO_FORMAT = (
-    "bestvideo[ext=mp4][filesize<45M]+bestaudio[ext=m4a]"
+    # Приоритет: H.264 видео + m4a аудио (нативный MP4, меньше перекодировки)
+    "bestvideo[vcodec^=avc][ext=mp4][filesize<45M]+bestaudio[ext=m4a]"
+    "/bestvideo[vcodec^=avc][filesize<45M]+bestaudio"
+    "/bestvideo[ext=mp4][filesize<45M]+bestaudio[ext=m4a]"
     "/best[ext=mp4][filesize<45M]"
     "/best[filesize<45M]"
     "/best"
@@ -99,15 +102,36 @@ def extract_url(text: str) -> str | None:
 
 # ─── Утилиты ──────────────────────────────────────────────────────────────────
 def strip_metadata(input_path: str, output_path: str) -> bool:
-    """Убирает метаданные из файла — чтобы Telegram не показывал 'Video by Автор'."""
+    """
+    Перекодирует видео для Telegram:
+    - убирает все метаданные (нет плашки 'Video by ...')
+    - конвертирует в yuv420p (8-бит) — единственный формат, который Telegram воспроизводит корректно
+    - ставит moov atom в начало файла (faststart) — нет белого экрана при старте
+    - аудио копируется без перекодировки (быстро)
+    """
     try:
         result = subprocess.run(
-            ["ffmpeg", "-y", "-i", input_path,
-             "-map_metadata", "-1",
-             "-map", "0:v?", "-map", "0:a?",
-             "-c", "copy", output_path],
-            capture_output=True, timeout=120,
+            [
+                "ffmpeg", "-y",
+                "-i", input_path,
+                "-map_metadata", "-1",          # убрать метаданные
+                "-map", "0:v?",
+                "-map", "0:a?",
+                "-c:v", "libx264",              # перекодировать видео
+                "-preset", "fast",              # быстрое кодирование
+                "-crf", "23",                   # качество (18=лучше, 28=хуже, 23=баланс)
+                "-pix_fmt", "yuv420p",          # 8-бит, совместимо со всеми плеерами
+                "-profile:v", "high",           # H.264 High profile
+                "-level:v", "4.1",              # совместимость с мобильными
+                "-c:a", "copy",                 # аудио не трогаем — быстро
+                "-movflags", "+faststart",      # moov в начало → нет белого экрана
+                output_path,
+            ],
+            capture_output=True,
+            timeout=300,
         )
+        if result.returncode != 0:
+            logger.error(f"ffmpeg stderr: {result.stderr.decode()[-500:]}")
         return result.returncode == 0
     except Exception as e:
         logger.error(f"strip_metadata error: {e}")
