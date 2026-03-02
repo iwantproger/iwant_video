@@ -34,14 +34,13 @@ from telegram.error import TelegramError
 
 # ─── Настройки ────────────────────────────────────────────────────────────────
 BOT_TOKEN    = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-BOT_USERNAME = os.environ.get("BOT_USERNAME", "your_bot_username")  # без @
+BOT_USERNAME = os.environ.get("BOT_USERNAME", "your_bot_username")
 BOT_LINK     = f"https://t.me/{BOT_USERNAME}"
 
 MAX_FILE_SIZE_MB    = 50
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 VIDEO_FORMAT = (
-    # Приоритет: H.264 видео + m4a аудио (нативный MP4, меньше перекодировки)
     "bestvideo[vcodec^=avc][ext=mp4][filesize<45M]+bestaudio[ext=m4a]"
     "/bestvideo[vcodec^=avc][filesize<45M]+bestaudio"
     "/bestvideo[ext=mp4][filesize<45M]+bestaudio[ext=m4a]"
@@ -58,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PREFS = {"desc": True, "stats": True}
 
-# ─── URL-паттерны ─────────────────────────────────────────────────────────────
+# ─── URL-утилиты ──────────────────────────────────────────────────────────────
 URL_PATTERN = re.compile(
     r"(https?://(?:www\.)?"
     r"(?:youtube\.com/watch\?[^\s]+|youtu\.be/[^\s]+"
@@ -78,20 +77,6 @@ URL_PATTERN = re.compile(
 GENERIC_URL_PATTERN = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 
 
-def is_instagram_url(url: str) -> bool:
-    return bool(re.search(r"instagram\.com", url, re.IGNORECASE))
-
-
-def to_kkinstagram(url: str) -> str:
-    """
-    Превращает instagram.com → kkinstagram.com.
-    Примеры:
-      https://www.instagram.com/reel/xxx  →  https://www.kkinstagram.com/reel/xxx
-      https://instagram.com/p/xxx         →  https://kkinstagram.com/p/xxx
-    """
-    return re.sub(r"(?i)(https?://(?:www\.)?)(instagram\.com)", r"\1kk\2", url)
-
-
 def extract_url(text: str) -> str | None:
     m = URL_PATTERN.search(text)
     if m:
@@ -100,31 +85,54 @@ def extract_url(text: str) -> str | None:
     return m.group(0) if m else None
 
 
-# ─── Утилиты ──────────────────────────────────────────────────────────────────
+def is_kk_platform(url: str) -> bool:
+    """Instagram или TikTok — платформы с kk-fallback."""
+    return bool(re.search(r"(instagram\.com|tiktok\.com)", url, re.IGNORECASE))
+
+
+def to_kk_url(url: str) -> str:
+    """
+    Заменяет 'www.' на 'kk' в URL.
+    Если 'www.' нет — добавляет 'kk' перед доменом.
+
+    Примеры:
+      https://www.instagram.com/reel/xxx  →  https://kkinstagram.com/reel/xxx
+      https://instagram.com/p/xxx         →  https://kkinstagram.com/p/xxx
+      https://www.tiktok.com/@u/video/1   →  https://kktiktok.com/@u/video/1
+      https://tiktok.com/@u/video/1       →  https://kktiktok.com/@u/video/1
+    """
+    # Убираем www. и добавляем kk перед доменом
+    url = re.sub(r"(?i)https?://www\.", "https://kk", url)
+    # Если www. не было — добавляем kk после схемы
+    url = re.sub(r"(?i)(https?://)(?!kk)", r"\1kk", url)
+    return url
+
+
+# ─── FFmpeg-обработка ─────────────────────────────────────────────────────────
 def strip_metadata(input_path: str, output_path: str) -> bool:
     """
     Перекодирует видео для Telegram:
     - убирает все метаданные (нет плашки 'Video by ...')
-    - конвертирует в yuv420p (8-бит) — единственный формат, который Telegram воспроизводит корректно
-    - ставит moov atom в начало файла (faststart) — нет белого экрана при старте
-    - аудио копируется без перекодировки (быстро)
+    - конвертирует в yuv420p (8-бит) — единственный формат без артефактов
+    - moov atom в начале файла (faststart) — нет белого экрана при старте
+    - аудио копируется без перекодировки
     """
     try:
         result = subprocess.run(
             [
                 "ffmpeg", "-y",
                 "-i", input_path,
-                "-map_metadata", "-1",          # убрать метаданные
+                "-map_metadata", "-1",
                 "-map", "0:v?",
                 "-map", "0:a?",
-                "-c:v", "libx264",              # перекодировать видео
-                "-preset", "fast",              # быстрое кодирование
-                "-crf", "23",                   # качество (18=лучше, 28=хуже, 23=баланс)
-                "-pix_fmt", "yuv420p",          # 8-бит, совместимо со всеми плеерами
-                "-profile:v", "high",           # H.264 High profile
-                "-level:v", "4.1",              # совместимость с мобильными
-                "-c:a", "copy",                 # аудио не трогаем — быстро
-                "-movflags", "+faststart",      # moov в начало → нет белого экрана
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-profile:v", "high",
+                "-level:v", "4.1",
+                "-c:a", "copy",
+                "-movflags", "+faststart",
                 output_path,
             ],
             capture_output=True,
@@ -143,9 +151,9 @@ def format_number(n) -> str:
         return "—"
     n = int(n)
     if n >= 1_000_000:
-        return f"{n/1_000_000:.1f}M"
+        return f"{n / 1_000_000:.1f}M"
     if n >= 1_000:
-        return f"{n/1_000:.1f}K"
+        return f"{n / 1_000:.1f}K"
     return str(n)
 
 
@@ -185,7 +193,6 @@ def download_video(url: str, output_dir: str) -> dict | None:
                     return None
                 filename = str(files[0])
 
-            # Убираем метаданные → нет плашки "Video by ..."
             clean_path = os.path.join(output_dir, "clean.mp4")
             if strip_metadata(filename, clean_path) and Path(clean_path).exists():
                 filename = clean_path
@@ -193,7 +200,6 @@ def download_video(url: str, output_dir: str) -> dict | None:
             if Path(filename).stat().st_size > MAX_FILE_SIZE_BYTES:
                 return None
 
-            # Разрешение из info или из форматов
             width  = info.get("width")
             height = info.get("height")
             if not width or not height:
@@ -239,26 +245,68 @@ def build_stats_str(info: dict) -> str:
     return "  ".join(parts)
 
 
-def build_caption(title, url, description, stats_str, show_desc, show_stats) -> str:
-    # title намеренно не включаем — чтобы Telegram не показывал заголовок на видео
+def build_caption(
+    url: str,
+    description: str,
+    stats_str: str,
+    show_desc: bool,
+    show_stats: bool,
+    sender_name: str = "",      # имя пользователя, который прислал ссылку
+) -> str:
     parts = []
+
+    # Кто прислал (только в группах)
+    if sender_name:
+        parts.append(f"👤 <b>{sender_name}</b>")
+
     if show_stats and stats_str:
-        parts.append(stats_str)
+        sep = "\n" if parts else ""
+        parts.append(f"{sep}{stats_str}")
+
     if show_desc and description:
         sep = "\n\n" if parts else ""
         parts.append(f"{sep}📝 {description}")
+
     link_line = f"🔗 <a href='{url}'>Оригинал</a>  •  🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
     if parts:
         parts.append(f"\n\n{link_line}")
     else:
         parts.append(link_line)
+
     return "".join(parts)
 
 
-def make_toggle_keyboard(chat_id, msg_id, show_desc, show_stats) -> InlineKeyboardMarkup:
+# ─── Клавиатуры ───────────────────────────────────────────────────────────────
+def make_main_keyboard(chat_id: int, msg_id: int, is_kk: bool) -> InlineKeyboardMarkup:
+    """
+    Для Instagram/TikTok: [Через Бот ✅] [Через kk]  +  [Доп.инфа]
+    Для остальных: сразу кнопки desc/stats
+    """
+    cid, mid = chat_id, msg_id
+    if is_kk:
+        return InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🤖 Через Бот ✅", callback_data=f"bot_active:{cid}:{mid}"),
+                InlineKeyboardButton("🔗 Через kk",     callback_data=f"send_kk:{cid}:{mid}"),
+            ],
+            [
+                InlineKeyboardButton("ℹ️ Доп.инфа", callback_data=f"info:{cid}:{mid}"),
+            ],
+        ])
+    else:
+        return make_toggle_keyboard(chat_id, msg_id, show_desc=True, show_stats=True, back=False)
+
+
+def make_toggle_keyboard(
+    chat_id: int,
+    msg_id: int,
+    show_desc: bool,
+    show_stats: bool,
+    back: bool = False,          # True — показывать кнопку «← Назад»
+) -> InlineKeyboardMarkup:
     d = "✅" if show_desc  else "☑️"
     s = "✅" if show_stats else "☑️"
-    return InlineKeyboardMarkup([
+    rows = [
         [
             InlineKeyboardButton(f"{d} Описание",   callback_data=f"tog:{chat_id}:{msg_id}:desc"),
             InlineKeyboardButton(f"{s} Статистика", callback_data=f"tog:{chat_id}:{msg_id}:stats"),
@@ -267,13 +315,23 @@ def make_toggle_keyboard(chat_id, msg_id, show_desc, show_stats) -> InlineKeyboa
             InlineKeyboardButton("✅ Всё",           callback_data=f"tog:{chat_id}:{msg_id}:all"),
             InlineKeyboardButton("❌ Только ссылка", callback_data=f"tog:{chat_id}:{msg_id}:none"),
         ],
-    ])
+    ]
+    if back:
+        rows.append([InlineKeyboardButton("← Назад", callback_data=f"back:{chat_id}:{msg_id}")])
+    return InlineKeyboardMarkup(rows)
 
 
 # ─── Отправка видео ────────────────────────────────────────────────────────────
-async def process_and_send_video(update, context, url, reply_to=None):
+async def process_and_send_video(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    url: str,
+    reply_to: int | None = None,
+    sender_name: str = "",
+) -> None:
     chat_id = update.effective_chat.id
-    prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+    prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+    kk      = is_kk_platform(url)
 
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
@@ -286,39 +344,31 @@ async def process_and_send_video(update, context, url, reply_to=None):
         loop = asyncio.get_event_loop()
         r = await loop.run_in_executor(None, download_video, url, tmpdir)
 
-        if r is None:
-            # ── Instagram fallback: пробуем kkinstagram.com ──────────────────
-            if is_instagram_url(url):
-                kk_url = to_kkinstagram(url)
-                await status_msg.edit_text(
-                    "⚠️ Instagram заблокировал скачивание.\n"
-                    "⏳ Пробую резервный способ...",
+        # ── Instagram/TikTok fallback через kk ──────────────────────────────
+        if r is None and kk:
+            kk_url = to_kk_url(url)
+            await status_msg.edit_text(
+                "⚠️ Не удалось скачать напрямую.\n"
+                "⏳ Пробую через kk...",
+            )
+            try:
+                sent_kk = await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=(
+                        f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
+                        f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+                    ),
+                    parse_mode=ParseMode.HTML,
+                    reply_to_message_id=reply_to,
+                    disable_web_page_preview=False,
                 )
-                try:
-                    # Отправляем kkinstagram-ссылку — Telegram сам попробует
-                    # встроить видео через предпросмотр страницы
-                    preview_msg = await context.bot.send_message(
-                        chat_id=chat_id,
-                        text=(
-                            f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
-                            f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
-                        ),
-                        parse_mode=ParseMode.HTML,
-                        reply_to_message_id=reply_to,
-                        disable_web_page_preview=False,  # просим Telegram сделать превью
-                    )
-                    # Проверяем — если Telegram сгенерировал web_page с video
-                    has_preview = bool(
-                        preview_msg.web_app_data
-                        or (hasattr(preview_msg, "entities") and preview_msg.entities)
-                    )
-                    # Любой ответ без исключения считаем успехом — ссылка ушла
-                    await status_msg.delete()
-                    return
-                except TelegramError as e:
-                    logger.error(f"kkinstagram fallback error: {e}")
-                    # Падаем в общую ошибку ниже
+                await status_msg.delete()
+                return
+            except TelegramError as e:
+                logger.error(f"kk fallback error: {e}")
+            # Если и kk не сработал — общая ошибка
 
+        if r is None:
             await status_msg.edit_text(
                 "❌ Не удалось скачать видео.\n\n"
                 "▪️ Видео недоступно или удалено\n"
@@ -330,31 +380,46 @@ async def process_and_send_video(update, context, url, reply_to=None):
             return
 
         stats_str = build_stats_str(r)
-        caption   = build_caption(r["title"], url, r["description"], stats_str, prefs["desc"], prefs["stats"])
+        caption   = build_caption(
+            url=url,
+            description=r["description"],
+            stats_str=stats_str,
+            show_desc=prefs["desc"],
+            show_stats=prefs["stats"],
+            sender_name=sender_name,
+        )
 
         try:
             with open(r["path"], "rb") as vf:
-                # Сначала отправляем с временной клавиатурой
                 sent = await context.bot.send_video(
-                    chat_id=chat_id, video=vf,
-                    caption=caption, parse_mode=ParseMode.HTML,
+                    chat_id=chat_id,
+                    video=vf,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
                     duration=r.get("duration"),
-                    width=r.get("width"),     # оригинальное разрешение
-                    height=r.get("height"),   # оригинальное разрешение
+                    width=r.get("width"),
+                    height=r.get("height"),
                     supports_streaming=True,
                     reply_to_message_id=reply_to,
                 )
 
             # Обновляем клавиатуру с правильным msg_id
-            kb = make_toggle_keyboard(chat_id, sent.message_id, prefs["desc"], prefs["stats"])
+            kb = make_main_keyboard(chat_id, sent.message_id, is_kk=kk)
             await context.bot.edit_message_reply_markup(
                 chat_id=chat_id, message_id=sent.message_id, reply_markup=kb
             )
 
-            # Сохраняем данные для переключения
+            # Сохраняем данные для кнопок
             context.bot_data[f"vid:{chat_id}:{sent.message_id}"] = {
-                "url": url, "title": r["title"], "description": r["description"],
-                "stats_str": stats_str, "show_desc": prefs["desc"], "show_stats": prefs["stats"],
+                "url":          url,
+                "kk_url":       to_kk_url(url) if kk else "",
+                "is_kk":        kk,
+                "title":        r["title"],
+                "description":  r["description"],
+                "stats_str":    stats_str,
+                "show_desc":    prefs["desc"],
+                "show_stats":   prefs["stats"],
+                "sender_name":  sender_name,
             }
             await status_msg.delete()
 
@@ -367,65 +432,130 @@ async def process_and_send_video(update, context, url, reply_to=None):
             )
 
 
-# ─── Callback: кнопки под видео ───────────────────────────────────────────────
-async def on_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
+# ─── Callbacks ────────────────────────────────────────────────────────────────
+async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Единый обработчик всех callback-кнопок под видео."""
+    query  = update.callback_query
     await query.answer()
+    parts  = query.data.split(":")
+    action = parts[0]
 
-    _, chat_id_str, msg_id_str, action = query.data.split(":", 3)
-    chat_id, msg_id = int(chat_id_str), int(msg_id_str)
+    # ── /settings кнопки (pref:*) ────────────────────────────────────────────
+    if action == "pref":
+        sub    = parts[1]
+        prefs  = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+        if   sub == "desc":  prefs["desc"]  = not prefs["desc"]
+        elif sub == "stats": prefs["stats"] = not prefs["stats"]
+        elif sub == "all":   prefs["desc"] = prefs["stats"] = True
+        elif sub == "none":  prefs["desc"] = prefs["stats"] = False
+        context.user_data["prefs"] = prefs
+        d = "✅" if prefs["desc"]  else "☑️"
+        s = "✅" if prefs["stats"] else "☑️"
+        await query.edit_message_text(
+            f"⚙️ <b>Настройки по умолчанию</b>\n\n{d} Описание  {s} Статистика\n\nПрименятся к следующим видео.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"{d} Описание",    callback_data="pref:desc"),
+                 InlineKeyboardButton(f"{s} Статистика",  callback_data="pref:stats")],
+                [InlineKeyboardButton("✅ Включить всё",  callback_data="pref:all"),
+                 InlineKeyboardButton("❌ Выключить всё", callback_data="pref:none")],
+            ]),
+        )
+        return
 
-    key  = f"vid:{chat_id}:{msg_id}"
-    data = context.bot_data.get(key)
+    # ── Все остальные кнопки требуют chat_id и msg_id ────────────────────────
+    if len(parts) < 3:
+        return
+    chat_id = int(parts[1])
+    msg_id  = int(parts[2])
+    key     = f"vid:{chat_id}:{msg_id}"
+    data    = context.bot_data.get(key)
+
     if not data:
         await query.answer("Данные устарели. Отправь ссылку заново.", show_alert=True)
         return
 
-    sd, ss = data["show_desc"], data["show_stats"]
-    if action == "desc":
-        sd = not sd
-    elif action == "stats":
-        ss = not ss
-    elif action == "all":
-        sd, ss = True, True
-    elif action == "none":
-        sd, ss = False, False
+    # ── "Через Бот" (уже активно, просто алерт) ──────────────────────────────
+    if action == "bot_active":
+        await query.answer("Видео уже отправлено через бота ✅", show_alert=False)
+        return
 
-    data["show_desc"], data["show_stats"] = sd, ss
-    context.bot_data[key] = data
+    # ── "Через kk" — отправляем kk-ссылку отдельным сообщением ──────────────
+    if action == "send_kk":
+        kk_url = data.get("kk_url") or to_kk_url(data["url"])
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
+                    f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+                ),
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=False,
+            )
+            # Меняем кнопку на "активную kk"
+            await query.edit_message_reply_markup(
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("🤖 Через Бот",    callback_data=f"bot_active:{chat_id}:{msg_id}"),
+                        InlineKeyboardButton("🔗 Через kk ✅",  callback_data=f"kk_active:{chat_id}:{msg_id}"),
+                    ],
+                    [InlineKeyboardButton("ℹ️ Доп.инфа", callback_data=f"info:{chat_id}:{msg_id}")],
+                ])
+            )
+        except TelegramError as e:
+            logger.error(f"send_kk error: {e}")
+        return
 
-    await query.edit_message_caption(
-        caption=build_caption(data["title"], data["url"], data["description"], data["stats_str"], sd, ss),
-        parse_mode=ParseMode.HTML,
-        reply_markup=make_toggle_keyboard(chat_id, msg_id, sd, ss),
-    )
+    # ── "kk уже активно" — просто алерт ──────────────────────────────────────
+    if action == "kk_active":
+        await query.answer("kk-ссылка уже отправлена ✅", show_alert=False)
+        return
 
+    # ── "Доп.инфа" — показываем toggle-клавиатуру с кнопкой Назад ───────────
+    if action == "info":
+        sd, ss = data["show_desc"], data["show_stats"]
+        await query.edit_message_reply_markup(
+            reply_markup=make_toggle_keyboard(chat_id, msg_id, sd, ss, back=True)
+        )
+        return
 
-# ─── Callback: /settings ──────────────────────────────────────────────────────
-async def on_pref_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    action = query.data.split(":")[1]
+    # ── "← Назад" — возвращаемся к основной клавиатуре ───────────────────────
+    if action == "back":
+        await query.edit_message_reply_markup(
+            reply_markup=make_main_keyboard(chat_id, msg_id, is_kk=data["is_kk"])
+        )
+        return
 
-    prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
-    if   action == "desc":  prefs["desc"]  = not prefs["desc"]
-    elif action == "stats": prefs["stats"] = not prefs["stats"]
-    elif action == "all":   prefs["desc"] = prefs["stats"] = True
-    elif action == "none":  prefs["desc"] = prefs["stats"] = False
-    context.user_data["prefs"] = prefs
+    # ── Переключение описания / статистики (tog:*) ────────────────────────────
+    if action == "tog":
+        sub        = parts[3] if len(parts) > 3 else ""
+        sd, ss     = data["show_desc"], data["show_stats"]
+        if   sub == "desc":  sd = not sd
+        elif sub == "stats": ss = not ss
+        elif sub == "all":   sd, ss = True, True
+        elif sub == "none":  sd, ss = False, False
 
-    d = "✅" if prefs["desc"]  else "☑️"
-    s = "✅" if prefs["stats"] else "☑️"
-    await query.edit_message_text(
-        f"⚙️ <b>Настройки по умолчанию</b>\n\n{d} Описание  {s} Статистика\n\nПрименятся к следующим видео.",
-        parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{d} Описание", callback_data="pref:desc"),
-             InlineKeyboardButton(f"{s} Статистика", callback_data="pref:stats")],
-            [InlineKeyboardButton("✅ Включить всё", callback_data="pref:all"),
-             InlineKeyboardButton("❌ Выключить всё", callback_data="pref:none")],
-        ]),
-    )
+        data["show_desc"], data["show_stats"] = sd, ss
+        context.bot_data[key] = data
+
+        new_caption = build_caption(
+            url=data["url"],
+            description=data["description"],
+            stats_str=data["stats_str"],
+            show_desc=sd,
+            show_stats=ss,
+            sender_name=data.get("sender_name", ""),
+        )
+        # Определяем, какую клавиатуру показывать (toggle, если уже в режиме info)
+        # Остаёмся в toggle-режиме с кнопкой Назад (если есть is_kk)
+        kb = make_toggle_keyboard(chat_id, msg_id, sd, ss, back=data["is_kk"])
+        await query.edit_message_caption(
+            caption=new_caption,
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb,
+        )
+        return
 
 
 # ─── Команды ──────────────────────────────────────────────────────────────────
@@ -443,7 +573,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "1️⃣ Отправь ссылку — получи видео\n"
         f"2️⃣ <code>@{BOT_USERNAME} ссылка</code> — в любом чате\n"
         "3️⃣ Добавь меня в группу — работаю там тоже\n\n"
-        "Под каждым видео — кнопки: включай/выключай описание и статистику 👇\n\n"
         "⚙️ /settings — настройки  |  ❓ /help",
         parse_mode=ParseMode.HTML,
     )
@@ -451,17 +580,19 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
-    d = "✅" if prefs["desc"] else "☑️"
+    d = "✅" if prefs["desc"]  else "☑️"
     s = "✅" if prefs["stats"] else "☑️"
     await update.message.reply_text(
         "📖 <b>Справка</b>\n\n"
         "<b>Личный чат:</b> отправь ссылку\n"
         "<b>Группа:</b> добавь бота, он реагирует на ссылки\n"
         f"<b>Инлайн:</b> <code>@{BOT_USERNAME} ссылка</code>\n\n"
-        "<b>Кнопки под видео:</b>\n"
-        "✅/☑️ Описание — текст из оригинала\n"
-        "✅/☑️ Статистика — просмотры, лайки, комменты\n\n"
-        f"<b>Твои настройки:</b> {d} Описание  {s} Статистика\n\n"
+        "<b>Кнопки под видео из Instagram / TikTok:</b>\n"
+        "🤖 Через Бот — скачанное видео\n"
+        "🔗 Через kk — ссылка через kk-зеркало\n"
+        "ℹ️ Доп.инфа — описание и статистика\n\n"
+        "<b>Кнопки под остальными видео:</b>\n"
+        f"{d} Описание  {s} Статистика\n\n"
         "Лимит: 50 МБ (ограничение Telegram)\n\n"
         f"⚙️ /settings\n🤖 {BOT_LINK}",
         parse_mode=ParseMode.HTML,
@@ -470,42 +601,62 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
-    d = "✅" if prefs["desc"] else "☑️"
+    d = "✅" if prefs["desc"]  else "☑️"
     s = "✅" if prefs["stats"] else "☑️"
     await update.message.reply_text(
         f"⚙️ <b>Настройки по умолчанию</b>\n\n{d} Описание  {s} Статистика",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{d} Описание", callback_data="pref:desc"),
-             InlineKeyboardButton(f"{s} Статистика", callback_data="pref:stats")],
-            [InlineKeyboardButton("✅ Включить всё", callback_data="pref:all"),
+            [InlineKeyboardButton(f"{d} Описание",    callback_data="pref:desc"),
+             InlineKeyboardButton(f"{s} Статистика",  callback_data="pref:stats")],
+            [InlineKeyboardButton("✅ Включить всё",  callback_data="pref:all"),
              InlineKeyboardButton("❌ Выключить всё", callback_data="pref:none")],
         ]),
     )
 
 
+# ─── Обработчик сообщений ─────────────────────────────────────────────────────
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg = update.message
     if not msg or not msg.text:
         return
+
     url = extract_url(msg.text)
     if not url:
         if update.effective_chat.type == "private":
-            await msg.reply_text("🔍 Не нашёл ссылку. Отправь ссылку на YouTube, TikTok, Instagram и т.д.\n\n❓ /help")
+            await msg.reply_text(
+                "🔍 Не нашёл ссылку.\n"
+                "Отправь ссылку на YouTube, TikTok, Instagram и т.д.\n\n❓ /help"
+            )
         return
-    await process_and_send_video(update, context, url, reply_to=msg.message_id)
+
+    # Определяем имя отправителя (показываем только в группах)
+    sender_name = ""
+    if update.effective_chat.type in ("group", "supergroup"):
+        user = msg.from_user
+        if user:
+            sender_name = user.full_name or user.first_name or ""
+
+    await process_and_send_video(
+        update, context, url,
+        reply_to=msg.message_id,
+        sender_name=sender_name,
+    )
 
 
 # ─── Инлайн ───────────────────────────────────────────────────────────────────
 async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.inline_query
-    url = extract_url(query.query.strip()) if query else None
+    url   = extract_url(query.query.strip()) if query else None
     if not url:
         await query.answer([InlineQueryResultArticle(
-            id="hint", title="🎬 Скачать видео",
+            id="hint",
+            title="🎬 Скачать видео",
             description="Введи ссылку на YouTube, TikTok, Instagram...",
             input_message_content=InputTextMessageContent(
-                f"🤖 <a href='{BOT_LINK}'>Бот, Смотри прикол</a>", parse_mode=ParseMode.HTML),
+                f"🤖 <a href='{BOT_LINK}'>Бот, Смотри прикол</a>",
+                parse_mode=ParseMode.HTML,
+            ),
         )], cache_time=300)
         return
 
@@ -516,8 +667,11 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         description=url[:70] + ("..." if len(url) > 70 else ""),
         input_message_content=InputTextMessageContent(
             f"⏳ Запрошено видео...\n🔗 {url}\n🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>",
-            parse_mode=ParseMode.HTML),
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎬 Открыть бота", url=BOT_LINK)]]),
+            parse_mode=ParseMode.HTML,
+        ),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🎬 Открыть бота", url=BOT_LINK)
+        ]]),
     )], cache_time=1, is_personal=True)
 
 
@@ -525,32 +679,59 @@ async def chosen_inline_result(update: Update, context: ContextTypes.DEFAULT_TYP
     result = update.chosen_inline_result
     if not result:
         return
-    url = context.bot_data.pop(f"inline_{result.inline_message_id}", None) or extract_url(result.query)
+    url = (
+        context.bot_data.pop(f"inline_{result.inline_message_id}", None)
+        or extract_url(result.query)
+    )
     if not url:
         return
+
     user_id = result.from_user.id
-    prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+    prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+    kk      = is_kk_platform(url)
+
     try:
         await context.bot.send_message(chat_id=user_id, text=f"⏳ Скачиваю...\n🔗 {url}")
         with tempfile.TemporaryDirectory() as tmpdir:
             r = await asyncio.get_event_loop().run_in_executor(None, download_video, url, tmpdir)
+
             if r:
-                ss = build_stats_str(r)
-                cap = build_caption(r["title"], url, r["description"], ss, prefs["desc"], prefs["stats"])
+                stats_str = build_stats_str(r)
+                caption   = build_caption(
+                    url=url,
+                    description=r["description"],
+                    stats_str=stats_str,
+                    show_desc=prefs["desc"],
+                    show_stats=prefs["stats"],
+                )
                 with open(r["path"], "rb") as vf:
                     sent = await context.bot.send_video(
-                        chat_id=user_id, video=vf, caption=cap, parse_mode=ParseMode.HTML,
-                        duration=r.get("duration"), width=r.get("width"), height=r.get("height"),
+                        chat_id=user_id, video=vf,
+                        caption=caption, parse_mode=ParseMode.HTML,
+                        duration=r.get("duration"),
+                        width=r.get("width"), height=r.get("height"),
                         supports_streaming=True,
                     )
-                kb = make_toggle_keyboard(user_id, sent.message_id, prefs["desc"], prefs["stats"])
-                await context.bot.edit_message_reply_markup(chat_id=user_id, message_id=sent.message_id, reply_markup=kb)
+                kb = make_main_keyboard(user_id, sent.message_id, is_kk=kk)
+                await context.bot.edit_message_reply_markup(
+                    chat_id=user_id, message_id=sent.message_id, reply_markup=kb
+                )
                 context.bot_data[f"vid:{user_id}:{sent.message_id}"] = {
-                    "url": url, "title": r["title"], "description": r["description"],
-                    "stats_str": ss, "show_desc": prefs["desc"], "show_stats": prefs["stats"],
+                    "url":         url,
+                    "kk_url":      to_kk_url(url) if kk else "",
+                    "is_kk":       kk,
+                    "title":       r["title"],
+                    "description": r["description"],
+                    "stats_str":   stats_str,
+                    "show_desc":   prefs["desc"],
+                    "show_stats":  prefs["stats"],
+                    "sender_name": "",
                 }
             else:
-                await context.bot.send_message(chat_id=user_id, text=f"❌ Не удалось скачать.\n🔗 {url}")
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"❌ Не удалось скачать.\n🔗 {url}",
+                )
     except TelegramError as e:
         logger.error(f"chosen_inline_result error: {e}")
 
@@ -559,14 +740,19 @@ async def chosen_inline_result(update: Update, context: ContextTypes.DEFAULT_TYP
 def main() -> None:
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
         raise ValueError("Установи BOT_TOKEN!")
+
     app = Application.builder().token(BOT_TOKEN).concurrent_updates(True).build()
+
     app.add_handler(CommandHandler("start",    cmd_start))
     app.add_handler(CommandHandler("help",     cmd_help))
     app.add_handler(CommandHandler("settings", cmd_settings))
-    app.add_handler(CallbackQueryHandler(on_toggle_callback, pattern=r"^tog:"))
-    app.add_handler(CallbackQueryHandler(on_pref_callback,   pattern=r"^pref:"))
+
+    # Все callback-кнопки — один обработчик
+    app.add_handler(CallbackQueryHandler(on_callback))
+
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(InlineQueryHandler(inline_query))
+
     logger.info("🎬 Бот, Смотри прикол — запущен!")
     app.run_polling(drop_pending_updates=True)
 
