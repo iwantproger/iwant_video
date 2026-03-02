@@ -75,6 +75,20 @@ URL_PATTERN = re.compile(
 GENERIC_URL_PATTERN = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 
 
+def is_instagram_url(url: str) -> bool:
+    return bool(re.search(r"instagram\.com", url, re.IGNORECASE))
+
+
+def to_kkinstagram(url: str) -> str:
+    """
+    Превращает instagram.com → kkinstagram.com.
+    Примеры:
+      https://www.instagram.com/reel/xxx  →  https://www.kkinstagram.com/reel/xxx
+      https://instagram.com/p/xxx         →  https://kkinstagram.com/p/xxx
+    """
+    return re.sub(r"(?i)(https?://(?:www\.)?)(instagram\.com)", r"\1kk\2", url)
+
+
 def extract_url(text: str) -> str | None:
     m = URL_PATTERN.search(text)
     if m:
@@ -202,12 +216,18 @@ def build_stats_str(info: dict) -> str:
 
 
 def build_caption(title, url, description, stats_str, show_desc, show_stats) -> str:
-    parts = [f"🎬 <b>{title}</b>"]
+    # title намеренно не включаем — чтобы Telegram не показывал заголовок на видео
+    parts = []
     if show_stats and stats_str:
-        parts.append(f"\n{stats_str}")
+        parts.append(stats_str)
     if show_desc and description:
-        parts.append(f"\n\n📝 {description}")
-    parts.append(f"\n\n🔗 <a href='{url}'>Оригинал</a>  •  🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>")
+        sep = "\n\n" if parts else ""
+        parts.append(f"{sep}📝 {description}")
+    link_line = f"🔗 <a href='{url}'>Оригинал</a>  •  🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+    if parts:
+        parts.append(f"\n\n{link_line}")
+    else:
+        parts.append(link_line)
     return "".join(parts)
 
 
@@ -243,6 +263,38 @@ async def process_and_send_video(update, context, url, reply_to=None):
         r = await loop.run_in_executor(None, download_video, url, tmpdir)
 
         if r is None:
+            # ── Instagram fallback: пробуем kkinstagram.com ──────────────────
+            if is_instagram_url(url):
+                kk_url = to_kkinstagram(url)
+                await status_msg.edit_text(
+                    "⚠️ Instagram заблокировал скачивание.\n"
+                    "⏳ Пробую резервный способ...",
+                )
+                try:
+                    # Отправляем kkinstagram-ссылку — Telegram сам попробует
+                    # встроить видео через предпросмотр страницы
+                    preview_msg = await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=(
+                            f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
+                            f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+                        ),
+                        parse_mode=ParseMode.HTML,
+                        reply_to_message_id=reply_to,
+                        disable_web_page_preview=False,  # просим Telegram сделать превью
+                    )
+                    # Проверяем — если Telegram сгенерировал web_page с video
+                    has_preview = bool(
+                        preview_msg.web_app_data
+                        or (hasattr(preview_msg, "entities") and preview_msg.entities)
+                    )
+                    # Любой ответ без исключения считаем успехом — ссылка ушла
+                    await status_msg.delete()
+                    return
+                except TelegramError as e:
+                    logger.error(f"kkinstagram fallback error: {e}")
+                    # Падаем в общую ошибку ниже
+
             await status_msg.edit_text(
                 "❌ Не удалось скачать видео.\n\n"
                 "▪️ Видео недоступно или удалено\n"
