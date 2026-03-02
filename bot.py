@@ -424,15 +424,14 @@ def make_cancel_keyboard(chat_id: int, status_msg_id: int) -> InlineKeyboardMark
     ]])
 
 
-def make_main_keyboard(chat_id: int, msg_id: int, is_kk: bool, kk_active: bool = False) -> InlineKeyboardMarkup:
-    """
-    is_kk=True (Instagram/TikTok):
-        [🤖 Через Бот (✅ или нет)] [🔗 Через kk (✅ или нет)]
-        [ℹ️ Доп.инфа]
-
-    is_kk=False (YouTube и остальные):
-        toggle-клавиатура описания/статистики
-    """
+def make_main_keyboard(
+    chat_id: int, msg_id: int,
+    is_kk: bool, kk_active: bool = False,
+    sender_user_id: int = 0,
+) -> InlineKeyboardMarkup:
+    del_btn = InlineKeyboardButton(
+        "🗑️", callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}"
+    )
     if is_kk:
         bot_label = "🤖 Через Бот ✅" if not kk_active else "🤖 Через Бот"
         kk_label  = "🔗 Через kk ✅"  if kk_active     else "🔗 Через kk"
@@ -440,24 +439,33 @@ def make_main_keyboard(chat_id: int, msg_id: int, is_kk: bool, kk_active: bool =
             [
                 InlineKeyboardButton(bot_label, callback_data=f"sw_bot:{chat_id}:{msg_id}"),
                 InlineKeyboardButton(kk_label,  callback_data=f"sw_kk:{chat_id}:{msg_id}"),
+                del_btn,
             ],
             [InlineKeyboardButton("ℹ️ Доп.инфа", callback_data=f"info:{chat_id}:{msg_id}")],
         ])
     else:
-        return make_toggle_keyboard(chat_id, msg_id, show_desc=True, show_stats=True, back=False)
+        return make_toggle_keyboard(
+            chat_id, msg_id, show_desc=True, show_stats=True,
+            back=False, sender_user_id=sender_user_id,
+        )
 
 
 def make_toggle_keyboard(
     chat_id: int, msg_id: int,
     show_desc: bool, show_stats: bool,
     back: bool = False,
+    sender_user_id: int = 0,
 ) -> InlineKeyboardMarkup:
     d = "✅" if show_desc  else "☑️"
     s = "✅" if show_stats else "☑️"
+    del_btn = InlineKeyboardButton(
+        "🗑️", callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}"
+    )
     rows = [
         [
             InlineKeyboardButton(f"{d} Описание",   callback_data=f"tog:{chat_id}:{msg_id}:desc"),
             InlineKeyboardButton(f"{s} Статистика", callback_data=f"tog:{chat_id}:{msg_id}:stats"),
+            del_btn,
         ],
         [
             InlineKeyboardButton("✅ Всё",           callback_data=f"tog:{chat_id}:{msg_id}:all"),
@@ -477,6 +485,7 @@ async def process_and_send_video(
     reply_to: int | None = None,
     sender_name: str = "",
     sender_username: str = "",
+    sender_user_id: int = 0,
 ) -> None:
     chat_id = update.effective_chat.id
     prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
@@ -583,7 +592,7 @@ async def process_and_send_video(
                         reply_to_message_id=reply_to,
                     )
 
-                kb = make_main_keyboard(chat_id, sent.message_id, is_kk=kk, kk_active=False)
+                kb = make_main_keyboard(chat_id, sent.message_id, is_kk=kk, kk_active=False, sender_user_id=sender_user_id)
                 await context.bot.edit_message_reply_markup(
                     chat_id=chat_id, message_id=sent.message_id, reply_markup=kb
                 )
@@ -605,6 +614,8 @@ async def process_and_send_video(
                     "show_desc":    prefs["desc"],
                     "show_stats":   prefs["stats"],
                     "sender_name":  sender_name,
+                    "sender_username": sender_username,
+                    "sender_user_id": sender_user_id,
                     "duration":     r.get("duration"),
                     "width":        r.get("width"),
                     "height":       r.get("height"),
@@ -646,6 +657,53 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         except TelegramError:
             pass
         await query.answer("🚫 Отменено", show_alert=False)
+        return
+
+    # ── Удаление сообщения ────────────────────────────────────────────────────
+    if action == "del":
+        # callback_data = "del:{chat_id}:{msg_id}:{sender_user_id}"
+        if len(parts) < 4:
+            return
+        d_chat_id       = int(parts[1])
+        d_msg_id        = int(parts[2])
+        allowed_user_id = int(parts[3])
+        presser_id      = query.from_user.id
+
+        # Разрешаем удаление: автор ссылки или администратор чата
+        can_delete = (presser_id == allowed_user_id)
+        if not can_delete:
+            # Проверяем, является ли пользователь администратором
+            try:
+                member = await context.bot.get_chat_member(d_chat_id, presser_id)
+                if member.status in ("administrator", "creator"):
+                    can_delete = True
+            except TelegramError:
+                pass
+
+        if not can_delete:
+            await query.answer(
+                "🚫 Только тот, кто поделился ссылкой, может удалить это сообщение.",
+                show_alert=True,
+            )
+            return
+
+        # Удаляем само видео-сообщение
+        try:
+            await context.bot.delete_message(chat_id=d_chat_id, message_id=d_msg_id)
+        except TelegramError:
+            pass
+
+        # Также удаляем kk-сообщение, если оно было
+        key  = f"vid:{d_chat_id}:{d_msg_id}"
+        data = context.bot_data.pop(key, None)
+        if data and data.get("kk_msg_id"):
+            try:
+                await context.bot.delete_message(
+                    chat_id=d_chat_id, message_id=data["kk_msg_id"]
+                )
+            except TelegramError:
+                pass
+
         return
 
     # ── /settings ─────────────────────────────────────────────────────────────
@@ -723,7 +781,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     pass
 
             new_msg_id = sent.message_id
-            kb = make_main_keyboard(chat_id, new_msg_id, is_kk=True, kk_active=False)
+            kb = make_main_keyboard(chat_id, new_msg_id, is_kk=True, kk_active=False, sender_user_id=data.get("sender_user_id", 0))
             await context.bot.edit_message_reply_markup(
                 chat_id=chat_id, message_id=new_msg_id, reply_markup=kb
             )
@@ -769,7 +827,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             new_kk_msg_id = sent_kk.message_id
 
             # Добавляем кнопки под kk-сообщение
-            kb = make_main_keyboard(chat_id, msg_id, is_kk=True, kk_active=True)
+            kb = make_main_keyboard(chat_id, msg_id, is_kk=True, kk_active=True, sender_user_id=data.get("sender_user_id", 0))
             await context.bot.edit_message_reply_markup(
                 chat_id=chat_id, message_id=new_kk_msg_id, reply_markup=kb
             )
@@ -786,7 +844,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if action == "info":
         sd, ss = data["show_desc"], data["show_stats"]
         await query.edit_message_reply_markup(
-            reply_markup=make_toggle_keyboard(chat_id, msg_id, sd, ss, back=True)
+            reply_markup=make_toggle_keyboard(chat_id, msg_id, sd, ss, back=True, sender_user_id=data.get("sender_user_id", 0))
         )
         return
 
@@ -795,7 +853,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await query.edit_message_reply_markup(
             reply_markup=make_main_keyboard(chat_id, msg_id,
                                             is_kk=data["is_kk"],
-                                            kk_active=data.get("kk_active", False))
+                                            kk_active=data.get("kk_active", False),
+                                            sender_user_id=data.get("sender_user_id", 0))
         )
         return
 
@@ -817,7 +876,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             sender_name=data.get("sender_name", ""),
             sender_username=data.get("sender_username", ""),
         )
-        kb = make_toggle_keyboard(chat_id, msg_id, sd, ss, back=data["is_kk"])
+        kb = make_toggle_keyboard(chat_id, msg_id, sd, ss, back=data["is_kk"], sender_user_id=data.get("sender_user_id", 0))
         await query.edit_message_caption(
             caption=new_cap, parse_mode=ParseMode.HTML, reply_markup=kb
         )
@@ -900,9 +959,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if user:
             sender_name    = user.full_name or user.first_name or ""
             sender_username = user.username or ""
+    # В личке тоже сохраняем user_id — чтобы владелец мог удалить
+    sender_user_id = msg.from_user.id if msg.from_user else 0
     await process_and_send_video(
         update, context, url, reply_to=msg.message_id,
         sender_name=sender_name, sender_username=sender_username,
+        sender_user_id=sender_user_id,
     )
 
 
