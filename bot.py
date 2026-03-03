@@ -5,6 +5,7 @@ YouTube, TikTok, Instagram, Twitter/X, Vimeo, Reddit и 1000+ других се�
 
 import os
 import re
+import json
 import time
 import uuid
 import logging
@@ -43,6 +44,9 @@ BOT_USERNAME  = os.environ.get("BOT_USERNAME", "your_bot_username")
 BOT_LINK      = f"https://t.me/{BOT_USERNAME}"
 ADMIN_USER_ID = int(os.environ.get("ADMIN_USER_ID", "0"))
 
+# Файл для хранения статистики между перезапусками
+STATS_FILE = os.environ.get("STATS_FILE", "/app/data/stats.json")
+
 MAX_FILE_SIZE_MB    = 50
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
@@ -63,19 +67,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# По умолчанию — минимум: только ссылка
+# По умолчанию — минимум: только ссылка, авто-удаление ВЫКЛ
 DEFAULT_PREFS = {
     "desc":        False,  # показывать описание видео
     "stats":       False,  # показывать статистику (просмотры, лайки)
-    "auto_delete": True,   # удалять исходное сообщение если только ссылка
+    "auto_delete": False,  # удалять исходное сообщение если только ссылка
     "show_sender": True,   # показывать «Отправил:» в группах
 }
 
 # Состояния диалога
 STATE_IDLE            = "idle"
-STATE_SUPPORT         = "support"        # пользователь пишет в поддержку
-STATE_BROADCAST_INPUT = "broadcast"      # админ вводит текст рассылки
-STATE_REPLY_SUPPORT   = "reply_support"  # админ отвечает пользователю
+STATE_SUPPORT         = "support"
+STATE_BROADCAST_INPUT = "broadcast"
+STATE_REPLY_SUPPORT   = "reply_support"
 
 
 # ─── Reply-клавиатура нижнего меню ────────────────────────────────────────────
@@ -92,37 +96,115 @@ def main_menu_keyboard(user_id: int) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
 
 
-# ─── Статистика ───────────────────────────────────────────────────────────────
+async def ensure_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Отправляет клавиатуру пользователю при первом обращении."""
+    if context.user_data.get("kb_sent"):
+        return
+    context.user_data["kb_sent"] = True
+    user_id = update.effective_user.id if update.effective_user else 0
+    try:
+        await update.effective_message.reply_text(
+            "👋 Привет! Используй кнопки меню снизу 👇",
+            reply_markup=main_menu_keyboard(user_id),
+        )
+    except Exception:
+        pass
+
+
+# ─── Статистика (персистентная через JSON) ────────────────────────────────────
+def _stats_empty() -> dict:
+    return {
+        "users":      [],   # list[int] — сохраняем как list, в памяти set
+        "daily":      {},   # {date_str: [user_id, ...]}
+        "links_sent": 0,
+        "success":    0,
+        "failed":     0,
+        "per_user":   {},   # {"uid": {"sent": int, "success": int}}
+    }
+
+
+def load_stats() -> dict:
+    """Загружает статистику из JSON-файла при старте."""
+    try:
+        p = Path(STATS_FILE)
+        if p.exists():
+            raw = json.loads(p.read_text())
+            raw["users"] = set(raw.get("users", []))
+            raw["daily"] = {
+                k: set(v) for k, v in raw.get("daily", {}).items()
+            }
+            # per_user keys — строки в JSON, оставляем строками
+            return raw
+    except Exception as e:
+        logger.warning(f"Не удалось загрузить статистику: {e}")
+    s = _stats_empty()
+    s["users"] = set()
+    return s
+
+
+def save_stats(s: dict) -> None:
+    """Сохраняет статистику в JSON-файл."""
+    try:
+        p = Path(STATS_FILE)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        serializable = {
+            "users":      list(s["users"]),
+            "daily":      {k: list(v) for k, v in s["daily"].items()},
+            "links_sent": s["links_sent"],
+            "success":    s["success"],
+            "failed":     s["failed"],
+            "per_user":   s["per_user"],
+        }
+        p.write_text(json.dumps(serializable, ensure_ascii=False, indent=2))
+    except Exception as e:
+        logger.warning(f"Не удалось сохранить статистику: {e}")
+
+
 def get_stats(bot_data: dict) -> dict:
     if "stats" not in bot_data:
-        bot_data["stats"] = {
-            "users":      set(),   # все уникальные user_id
-            "daily":      {},      # {date_str: set(user_id)}
-            "links_sent": 0,
-            "success":    0,
-            "failed":     0,
-            "per_user":   {},      # {user_id: {"sent": int, "success": int}}
-        }
+        bot_data["stats"] = load_stats()
     return bot_data["stats"]
 
 
 def track_request(bot_data: dict, user_id: int) -> None:
+    # Не учитываем действия администратора
+    if ADMIN_USER_ID and user_id == ADMIN_USER_ID:
+        return
     s = get_stats(bot_data)
     s["users"].add(user_id)
     today = str(date.today())
     s["daily"].setdefault(today, set()).add(user_id)
     s["links_sent"] += 1
-    s["per_user"].setdefault(user_id, {"sent": 0, "success": 0})["sent"] += 1
+    key = str(user_id)
+    s["per_user"].setdefault(key, {"sent": 0, "success": 0})["sent"] += 1
+    save_stats(s)
 
 
 def track_success(bot_data: dict, user_id: int) -> None:
+    if ADMIN_USER_ID and user_id == ADMIN_USER_ID:
+        return
     s = get_stats(bot_data)
     s["success"] += 1
-    s["per_user"].setdefault(user_id, {"sent": 0, "success": 0})["success"] += 1
+    key = str(user_id)
+    s["per_user"].setdefault(key, {"sent": 0, "success": 0})["success"] += 1
+    save_stats(s)
 
 
 def track_failed(bot_data: dict) -> None:
-    get_stats(bot_data)["failed"] += 1
+    s = get_stats(bot_data)
+    s["failed"] += 1
+    save_stats(s)
+
+
+def track_user(bot_data: dict, user_id: int) -> None:
+    """Просто регистрируем нового пользователя (для /start без ссылки)."""
+    if ADMIN_USER_ID and user_id == ADMIN_USER_ID:
+        return
+    s = get_stats(bot_data)
+    s["users"].add(user_id)
+    today = str(date.today())
+    s["daily"].setdefault(today, set()).add(user_id)
+    save_stats(s)
 
 
 # ─── URL-утилиты ──────────────────────────────────────────────────────────────
@@ -211,7 +293,6 @@ def process_video(input_path: str, output_path: str, force_reencode: bool = Fals
                    "-map_metadata", "-1", "-map", "0:v?", "-map", "0:a?",
                    "-c", "copy", "-movflags", "+faststart", output_path]
             timeout = 60
-
         result = subprocess.run(cmd, capture_output=True, timeout=timeout)
         if result.returncode != 0:
             logger.error(f"ffmpeg stderr: {result.stderr.decode()[-500:]}")
@@ -276,18 +357,16 @@ def download_video(
         if status == "downloading":
             downloaded = d.get("downloaded_bytes") or 0
             total      = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
-            speed      = d.get("speed")
-            eta        = d.get("eta")
+            speed, eta = d.get("speed"), d.get("eta")
             lines = ["⏳ Скачиваю видео..."]
             if total and downloaded:
-                pct = int(downloaded / total * 100)
-                done_mb  = downloaded / 1_048_576
-                total_mb = total / 1_048_576
-                lines.append(f"📊 {pct}%  ({done_mb:.1f} / {total_mb:.1f} МБ)")
-            speed_str = fmt_speed(speed)
-            eta_str   = fmt_eta(eta)
-            if speed_str or eta_str:
-                lines.append(f"🚀 {speed_str}  {eta_str}".strip())
+                pct     = int(downloaded / total * 100)
+                done_mb = downloaded / 1_048_576
+                tot_mb  = total / 1_048_576
+                lines.append(f"📊 {pct}%  ({done_mb:.1f} / {tot_mb:.1f} МБ)")
+            sp, et = fmt_speed(speed), fmt_eta(eta)
+            if sp or et:
+                lines.append(f"🚀 {sp}  {et}".strip())
             status_callback("\n".join(lines))
         elif status == "finished":
             status_callback("⚙️ Обрабатываю видео...")
@@ -310,13 +389,11 @@ def download_video(
             )
         },
     }
-
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             if info is None:
                 return None
-
             filename = ydl.prepare_filename(info)
             if not Path(filename).exists():
                 filename = str(Path(filename).with_suffix(".mp4"))
@@ -325,29 +402,22 @@ def download_video(
                 if not files:
                     return None
                 filename = str(files[0])
-
             if cancel_event and cancel_event.is_set():
                 raise DownloadCancelled()
-
             clean_path = os.path.join(output_dir, "clean.mp4")
             if process_video(filename, clean_path, force_reencode=yt) and Path(clean_path).exists():
                 filename = clean_path
-
             if Path(filename).stat().st_size > MAX_FILE_SIZE_BYTES:
                 return None
-
-            width  = info.get("width")
-            height = info.get("height")
+            width, height = info.get("width"), info.get("height")
             if not width or not height:
                 for fmt in reversed(info.get("formats", [])):
                     if fmt.get("width") and fmt.get("height"):
                         width, height = fmt["width"], fmt["height"]
                         break
-
             description = (info.get("description") or "").strip()
             if len(description) > 800:
                 description = description[:797] + "..."
-
             return {
                 "path":          filename,
                 "title":         (info.get("title") or "").strip(),
@@ -358,17 +428,14 @@ def download_video(
                 "view_count":    info.get("view_count"),
                 "like_count":    info.get("like_count"),
                 "comment_count": info.get("comment_count"),
-                "uploader":      info.get("uploader") or info.get("channel") or "",
             }
-
     except DownloadCancelled:
-        logger.info(f"Скачивание отменено: {url}")
         return None
     except yt_dlp.utils.DownloadError as e:
         logger.error(f"DownloadError: {e}")
         return None
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.error(f"download_video error: {e}")
         return None
 
 
@@ -396,19 +463,14 @@ def build_caption(
     show_sender: bool = True,
 ) -> str:
     parts = []
-
     parts.append(f"<b>Смотри прикол! {title}</b>" if title else "<b>Смотри прикол!</b>")
-
     if show_stats and stats_str:
         parts.append(f"\n{stats_str}")
-
     if show_desc and description:
         parts.append(f"\n\n📝 {description}")
-
     parts.append(
         f"\n\n🔗 <a href='{url}'>Оригинал</a>  •  🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
     )
-
     if show_sender and sender_name:
         if sender_username:
             parts.append(
@@ -416,7 +478,6 @@ def build_caption(
             )
         else:
             parts.append(f"\n\n<i>Отправил: {sender_name}</i>")
-
     return "".join(parts)
 
 
@@ -428,7 +489,6 @@ def make_cancel_keyboard(chat_id: int, status_msg_id: int) -> InlineKeyboardMark
 
 
 def make_single_settings_keyboard(chat_id: int, msg_id: int) -> InlineKeyboardMarkup:
-    """Одна кнопка ⚙️ под видео."""
     return InlineKeyboardMarkup([[
         InlineKeyboardButton("⚙️", callback_data=f"open:{chat_id}:{msg_id}"),
     ]])
@@ -442,7 +502,6 @@ def make_expanded_keyboard(
     del_btn      = InlineKeyboardButton("🗑️ Удалить",  callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}")
     info_btn     = InlineKeyboardButton("ℹ️ Доп.инфа", callback_data=f"info:{chat_id}:{msg_id}")
     collapse_btn = InlineKeyboardButton("✖️ Свернуть", callback_data=f"collapse:{chat_id}:{msg_id}")
-
     if is_kk:
         bot_label = "🤖 Через Бот ✅" if not kk_active else "🤖 Через Бот"
         kk_label  = "🔗 Через kk ✅"  if kk_active     else "🔗 Через kk"
@@ -481,17 +540,16 @@ def make_info_keyboard(
     ])
 
 
-# ─── Настройки пользователя ───────────────────────────────────────────────────
 def settings_text(prefs: dict) -> str:
-    d  = "✅" if prefs.get("desc")         else "☑️"
-    s  = "✅" if prefs.get("stats")        else "☑️"
-    ad = "✅" if prefs.get("auto_delete", True)  else "☑️"
+    d  = "✅" if prefs.get("desc")               else "☑️"
+    s  = "✅" if prefs.get("stats")              else "☑️"
+    ad = "✅" if prefs.get("auto_delete", False) else "☑️"
     ss = "✅" if prefs.get("show_sender", True)  else "☑️"
     return (
         "⚙️ <b>Настройки</b>\n\n"
-        f"{d} <b>Описание</b> — показывать текст описания под видео\n"
+        f"{d} <b>Описание</b> — текст описания под видео\n"
         f"{s} <b>Статистика</b> — просмотры, лайки, комментарии\n"
-        f"{ad} <b>Авто-удаление ссылок</b> — убирать сообщение с ссылкой после скачивания\n"
+        f"{ad} <b>Авто-удаление ссылок</b> — убирать твоё сообщение со ссылкой после скачивания\n"
         f"{ss} <b>Показывать «Отправил:»</b> — имя отправителя в группах\n\n"
         "<i>Изменения применяются к следующим видео.</i>"
     )
@@ -500,15 +558,15 @@ def settings_text(prefs: dict) -> str:
 def make_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
     d  = "✅" if prefs.get("desc")               else "☑️"
     s  = "✅" if prefs.get("stats")              else "☑️"
-    ad = "✅" if prefs.get("auto_delete", True)  else "☑️"
+    ad = "✅" if prefs.get("auto_delete", False) else "☑️"
     ss = "✅" if prefs.get("show_sender", True)  else "☑️"
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(f"{d} Описание",   callback_data="pref:desc"),
             InlineKeyboardButton(f"{s} Статистика", callback_data="pref:stats"),
         ],
-        [InlineKeyboardButton(f"{ad} Авто-удаление ссылок",    callback_data="pref:auto_delete")],
-        [InlineKeyboardButton(f"{ss} Показывать «Отправил:»",  callback_data="pref:show_sender")],
+        [InlineKeyboardButton(f"{ad} Авто-удаление ссылок",   callback_data="pref:auto_delete")],
+        [InlineKeyboardButton(f"{ss} Показывать «Отправил:»", callback_data="pref:show_sender")],
     ])
 
 
@@ -545,8 +603,7 @@ async def process_and_send_video(
     cancel_event = threading.Event()
     cancel_key   = f"cancel:{chat_id}:{status_msg.message_id}"
     context.bot_data[cancel_key] = cancel_event
-
-    loop      = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()
     last_text = [""]
 
     def status_callback(text: str) -> None:
@@ -559,8 +616,7 @@ async def process_and_send_video(
                 message_id=status_msg.message_id,
                 text=text + "\n\n🚫 Нажми Отмена, чтобы остановить",
                 reply_markup=make_cancel_keyboard(chat_id, status_msg.message_id),
-            ),
-            loop,
+            ), loop,
         )
 
     kk = is_kk_platform(url)
@@ -570,7 +626,6 @@ async def process_and_send_video(
             r = await loop.run_in_executor(
                 None, download_video, url, tmpdir, cancel_event, status_callback
             )
-
             if cancel_event.is_set():
                 return
 
@@ -622,7 +677,6 @@ async def process_and_send_video(
                     chat_id=chat_id, message_id=sent.message_id,
                     reply_markup=make_single_settings_keyboard(chat_id, sent.message_id),
                 )
-
                 context.bot_data[f"vid:{chat_id}:{sent.message_id}"] = {
                     "url":             url,
                     "kk_url":          to_kk_url(url) if kk else "",
@@ -647,13 +701,13 @@ async def process_and_send_video(
                 }
                 await status_msg.delete()
 
-                if delete_source_msg_id and prefs.get("auto_delete", True):
+                if delete_source_msg_id and prefs.get("auto_delete", False):
                     try:
                         await context.bot.delete_message(
                             chat_id=chat_id, message_id=delete_source_msg_id
                         )
-                    except TelegramError as e:
-                        logger.warning(f"Не удалось удалить исходное сообщение: {e}")
+                    except TelegramError:
+                        pass
 
                 track_success(context.bot_data, uid)
 
@@ -681,16 +735,13 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if len(parts) < 3:
             return
         c_chat_id, c_status_id = int(parts[1]), int(parts[2])
-        ev: threading.Event | None = context.bot_data.pop(
-            f"cancel:{c_chat_id}:{c_status_id}", None
-        )
+        ev = context.bot_data.pop(f"cancel:{c_chat_id}:{c_status_id}", None)
         if ev:
             ev.set()
         try:
             await context.bot.delete_message(chat_id=c_chat_id, message_id=c_status_id)
         except TelegramError:
             pass
-        await query.answer("🚫 Отменено", show_alert=False)
         return
 
     # ── Удаление сообщения об ошибке ──────────────────────────────────────────
@@ -763,12 +814,12 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await query.edit_message_reply_markup(reply_markup=None)
         await context.bot.send_message(
             chat_id=query.from_user.id,
-            text=f"✏️ Напиши ответ для <b>{target_name}</b>:\n\n<i>(отправь /cancel для отмены)</i>",
+            text=f"✏️ Напиши ответ для <b>{target_name}</b>:\n\n<i>(/cancel для отмены)</i>",
             parse_mode=ParseMode.HTML,
         )
         return
 
-    # Остальные кнопки — для видео-сообщений (chat_id + msg_id)
+    # Остальные кнопки — видео (chat_id + msg_id)
     if len(parts) < 3:
         return
     chat_id = int(parts[1])
@@ -837,6 +888,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if not data.get("kk_active"):
             await query.answer("Видео уже через бота ✅", show_alert=False)
             return
+
+        # Удаляем kk-сообщение
         if data.get("kk_msg_id"):
             try:
                 await context.bot.delete_message(chat_id=chat_id, message_id=data["kk_msg_id"])
@@ -862,22 +915,19 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 reply_to_message_id=data.get("reply_to"),
                 disable_notification=True,
             )
-            if data.get("bot_msg_id") and data["bot_msg_id"] != sent.message_id:
-                try:
-                    await context.bot.delete_message(chat_id=chat_id, message_id=data["bot_msg_id"])
-                except TelegramError:
-                    pass
             new_msg_id = sent.message_id
             await context.bot.edit_message_reply_markup(
                 chat_id=chat_id, message_id=new_msg_id,
                 reply_markup=make_single_settings_keyboard(chat_id, new_msg_id),
             )
+            # Обновляем данные: новый ключ
             context.bot_data.pop(key, None)
             data["kk_active"]  = False
             data["bot_msg_id"] = new_msg_id
             context.bot_data[f"vid:{chat_id}:{new_msg_id}"] = data
         except TelegramError as e:
             logger.error(f"sw_bot error: {e}")
+            await query.answer("❌ Не удалось отправить видео", show_alert=True)
         return
 
     # ── Через kk ──────────────────────────────────────────────────────────────
@@ -886,31 +936,43 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await query.answer("Уже через kk ✅", show_alert=False)
             return
         kk_url = data.get("kk_url") or to_kk_url(data["url"])
+
+        # СНАЧАЛА отправляем kk-ссылку — только потом удаляем видео
+        try:
+            sent_kk = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>",
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=False,
+                disable_notification=True,
+            )
+        except TelegramError as e:
+            logger.error(f"sw_kk send error: {e}")
+            await query.answer("❌ Не удалось отправить kk-ссылку", show_alert=True)
+            return
+
+        new_kk_msg_id = sent_kk.message_id
+
+        # Добавляем клавиатуру к kk-сообщению (привязана к исходному msg_id)
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=chat_id, message_id=new_kk_msg_id,
+                reply_markup=make_single_settings_keyboard(chat_id, msg_id),
+            )
+        except TelegramError:
+            pass
+
+        # Теперь безопасно удаляем видео-сообщение
         if data.get("bot_msg_id"):
             try:
                 await context.bot.delete_message(chat_id=chat_id, message_id=data["bot_msg_id"])
             except TelegramError:
                 pass
             data["bot_msg_id"] = None
-        try:
-            sent_kk = await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>",
-                parse_mode=ParseMode.HTML,
-                reply_to_message_id=data.get("reply_to"),
-                disable_web_page_preview=False,
-                disable_notification=True,
-            )
-            new_kk_msg_id = sent_kk.message_id
-            await context.bot.edit_message_reply_markup(
-                chat_id=chat_id, message_id=new_kk_msg_id,
-                reply_markup=make_single_settings_keyboard(chat_id, msg_id),
-            )
-            data["kk_active"] = True
-            data["kk_msg_id"] = new_kk_msg_id
-            context.bot_data[key] = data
-        except TelegramError as e:
-            logger.error(f"sw_kk error: {e}")
+
+        data["kk_active"] = True
+        data["kk_msg_id"] = new_kk_msg_id
+        context.bot_data[key] = data
         return
 
     # ── Переключение описания / статистики ────────────────────────────────────
@@ -919,10 +981,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         sd, ss = data["show_desc"], data["show_stats"]
         if   sub == "desc":  sd = not sd
         elif sub == "stats": ss = not ss
-
         data["show_desc"], data["show_stats"] = sd, ss
         context.bot_data[key] = data
-
         new_cap = build_caption(
             url=data["url"], title=data.get("title", ""),
             description=data["description"], stats_str=data["stats_str"],
@@ -944,16 +1004,16 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # ─── Команды ──────────────────────────────────────────────────────────────────
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    get_stats(context.bot_data)["users"].add(user_id)
+    context.user_data["kb_sent"] = True
+    track_user(context.bot_data, user_id)
     await update.message.reply_text(
         "👋 <b>Привет! Я — Бот, Смотри прикол 🎬</b>\n\n"
         "Скидывай ссылки на видео — скачаю и пришлю прямо в чат.\n\n"
-        "Поддерживаю:\n"
         "▪️ YouTube / Shorts\n"
         "▪️ TikTok\n"
         "▪️ Instagram Reels\n"
         "▪️ Twitter / X\n"
-        "▪️ Vimeo, Reddit, Twitch и ещё 1000+ сайтов\n\n"
+        "▪️ Vimeo, Reddit, Twitch и 1000+ других сайтов\n\n"
         "Используй кнопки меню снизу 👇",
         parse_mode=ParseMode.HTML,
         reply_markup=main_menu_keyboard(user_id),
@@ -961,30 +1021,27 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await ensure_keyboard(update, context)
     prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
-    d  = "✅" if prefs.get("desc")              else "☑️"
-    s  = "✅" if prefs.get("stats")             else "☑️"
-    ad = "✅" if prefs.get("auto_delete", True) else "☑️"
+    d  = "✅" if prefs.get("desc")               else "☑️"
+    s  = "✅" if prefs.get("stats")              else "☑️"
+    ad = "✅" if prefs.get("auto_delete", False) else "☑️"
     await update.message.reply_text(
         "📖 <b>Справка</b>\n\n"
-        "<b>Как пользоваться:</b>\n"
-        "1️⃣ Отправь ссылку на видео\n"
-        "2️⃣ Бот скачает и пришлёт видео\n"
-        f"3️⃣ <code>@{BOT_USERNAME} ссылка</code> — в любом чате\n\n"
-        "<b>Кнопка ⚙️ под видео открывает:</b>\n"
-        "🤖/🔗 — Через Бот или kk-зеркало (Инста/ТикТок)\n"
-        "ℹ️ Доп.инфа — описание и статистика\n"
-        "🗑️ Удалить — убрать сообщение\n"
-        "💾 Сохранить — запомнить настройки\n\n"
-        f"<b>Твои настройки:</b>\n"
-        f"{d} Описание  {s} Статистика  {ad} Авто-удаление ссылок\n\n"
-        "Лимит файла: 50 МБ",
+        "Отправь ссылку на видео — скачаю и пришлю.\n"
+        f"Или <code>@{BOT_USERNAME} ссылка</code> в любом чате.\n\n"
+        "<b>Кнопка ⚙️ под видео:</b>\n"
+        "🤖/🔗 — переключить Бот ↔ kk-зеркало\n"
+        "ℹ️ Доп.инфа — описание, статистика, сохранение\n"
+        "🗑️ Удалить — убрать сообщение\n\n"
+        f"<b>Твои настройки:</b> {d} Описание  {s} Статистика  {ad} Авто-удаление\n\n"
+        "Лимит: 50 МБ",
         parse_mode=ParseMode.HTML,
-        reply_markup=main_menu_keyboard(update.effective_user.id),
     )
 
 
 async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await ensure_keyboard(update, context)
     prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
     await update.message.reply_text(
         settings_text(prefs),
@@ -994,11 +1051,10 @@ async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Сброс: очищает настройки и историю состояний."""
     context.user_data.clear()
+    context.user_data["kb_sent"] = True
     await update.message.reply_text(
-        "🔄 <b>Готово!</b> Все настройки сброшены до стандартных.\n\n"
-        "Можешь отправлять ссылки заново.",
+        "🔄 <b>Готово!</b> Все настройки сброшены до стандартных.",
         parse_mode=ParseMode.HTML,
         reply_markup=main_menu_keyboard(update.effective_user.id),
     )
@@ -1009,15 +1065,12 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     context.user_data["state"] = STATE_IDLE
     context.user_data.pop("reply_to_user", None)
     context.user_data.pop("reply_to_name", None)
-    msg = "✖️ Отменено." if state != STATE_IDLE else "Нечего отменять."
-    await update.message.reply_text(msg)
+    await update.message.reply_text("✖️ Отменено." if state != STATE_IDLE else "Нечего отменять.")
 
 
-# ─── Статистика и рассылка (admin) ────────────────────────────────────────────
 async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if ADMIN_USER_ID and update.effective_user.id != ADMIN_USER_ID:
         return
-
     s               = get_stats(context.bot_data)
     today           = str(date.today())
     total           = len(s["users"])
@@ -1029,14 +1082,14 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ok_pct          = round(ok   / total_processed * 100) if total_processed else 0
     fail_pct        = round(fail / total_processed * 100) if total_processed else 0
     per_user        = s["per_user"]
-    avg_req         = round(sum(v["sent"] for v in per_user.values()) / len(per_user), 1) if per_user else 0
-
+    avg_req = round(
+        sum(v["sent"] for v in per_user.values()) / len(per_user), 1
+    ) if per_user else 0
     top5 = sorted(per_user.items(), key=lambda x: x[1]["sent"], reverse=True)[:5]
     top5_lines = "\n".join(
         f"  {i+1}. <code>{uid}</code> — {v['sent']} запр., {v['success']} успешно"
         for i, (uid, v) in enumerate(top5)
     ) or "  нет данных"
-
     await update.message.reply_text(
         f"📊 <b>Статистика бота</b>\n\n"
         f"👥 Всего пользователей: <b>{total}</b>\n"
@@ -1046,7 +1099,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"❌ Не удалось: <b>{fail}</b> ({fail_pct}%)\n\n"
         f"📈 Среднее запросов/пользователь: <b>{avg_req}</b>\n\n"
         f"🏆 Топ-5:\n{top5_lines}\n\n"
-        f"<i>Статистика сбрасывается при перезапуске.</i>",
+        f"<i>Статистика сохраняется между перезапусками.</i>",
         parse_mode=ParseMode.HTML,
     )
 
@@ -1056,7 +1109,6 @@ async def do_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE, text:
     user_ids  = list(s["users"])
     sent_ok   = 0
     sent_fail = 0
-
     await update.message.reply_text(f"⏳ Отправляю {len(user_ids)} пользователям...")
     for uid in user_ids:
         try:
@@ -1069,7 +1121,6 @@ async def do_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE, text:
             await asyncio.sleep(0.05)
         except TelegramError:
             sent_fail += 1
-
     await update.message.reply_text(
         f"✅ Готово!\n📨 Доставлено: {sent_ok}\n❌ Не доставлено: {sent_fail}"
     )
@@ -1084,14 +1135,13 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     else:
         context.user_data["state"] = STATE_BROADCAST_INPUT
         await update.message.reply_text(
-            "📢 <b>Рассылка</b>\n\n"
-            "Напиши текст — он уйдёт всем пользователям бота.\n\n"
+            "📢 <b>Рассылка</b>\n\nНапиши текст — уйдёт всем пользователям.\n\n"
             "<i>Отправь /cancel для отмены.</i>",
             parse_mode=ParseMode.HTML,
         )
 
 
-# ─── Обработчик всех текстовых сообщений ─────────────────────────────────────
+# ─── Обработчик сообщений ─────────────────────────────────────────────────────
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg  = update.message
     if not msg or not msg.text:
@@ -1100,8 +1150,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     text    = msg.text
     user_id = msg.from_user.id if msg.from_user else 0
     state   = context.user_data.get("state", STATE_IDLE)
+    is_admin = not ADMIN_USER_ID or user_id == ADMIN_USER_ID
 
-    # ── Кнопки нижнего меню пользователя ─────────────────────────────────────
+    # Отправляем клавиатуру при первом сообщении (если пользователь не нажимал /start)
+    await ensure_keyboard(update, context)
+
+    # ── Кнопки меню пользователя ──────────────────────────────────────────────
     if text == "⚙️ Настройки":
         await cmd_settings(update, context)
         return
@@ -1118,16 +1172,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.user_data["state"] = STATE_SUPPORT
         await msg.reply_text(
             "🆘 <b>Поддержка</b>\n\n"
-            "Напиши своё сообщение — я передам его автору бота.\n"
-            "Можно описать проблему, задать вопрос или предложить идею.\n\n"
+            "Напиши своё сообщение — я передам его автору бота.\n\n"
             "<i>Отправь /cancel для отмены.</i>",
             parse_mode=ParseMode.HTML,
         )
         return
 
-    # ── Кнопки нижнего меню администратора ───────────────────────────────────
-    is_admin = not ADMIN_USER_ID or user_id == ADMIN_USER_ID
-
+    # ── Кнопки меню администратора ────────────────────────────────────────────
     if text == "📊 Статистика" and is_admin:
         await cmd_stats(update, context)
         return
@@ -1135,19 +1186,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if text == "📢 Рассылка" and is_admin:
         context.user_data["state"] = STATE_BROADCAST_INPUT
         await msg.reply_text(
-            "📢 <b>Рассылка</b>\n\n"
-            "Напиши текст — он уйдёт всем пользователям бота.\n\n"
+            "📢 <b>Рассылка</b>\n\nНапиши текст — уйдёт всем пользователям.\n\n"
             "<i>Отправь /cancel для отмены.</i>",
             parse_mode=ParseMode.HTML,
         )
         return
 
-    # ── Режим поддержки: пользователь пишет вопрос ───────────────────────────
+    # ── Режим поддержки ───────────────────────────────────────────────────────
     if state == STATE_SUPPORT:
         context.user_data["state"] = STATE_IDLE
-        user   = msg.from_user
-        name   = user.full_name or user.first_name or "Аноним"
-        uname  = f"@{user.username}" if user.username else f"id: {user_id}"
+        user  = msg.from_user
+        name  = user.full_name or user.first_name or "Аноним"
+        uname = f"@{user.username}" if user.username else f"id: {user_id}"
         if ADMIN_USER_ID:
             try:
                 await context.bot.send_message(
@@ -1171,7 +1221,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await msg.reply_text("✅ Сообщение отправлено! Постараюсь ответить как можно скорее.")
         return
 
-    # ── Режим рассылки: админ вводит текст ───────────────────────────────────
+    # ── Режим рассылки (admin) ────────────────────────────────────────────────
     if state == STATE_BROADCAST_INPUT and is_admin:
         context.user_data["state"] = STATE_IDLE
         await do_broadcast(update, context, text)
@@ -1194,19 +1244,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 await msg.reply_text(f"❌ Не удалось отправить: {e}")
         return
 
-    # ── Обычная ссылка на видео ───────────────────────────────────────────────
+    # ── Ссылка на видео ───────────────────────────────────────────────────────
     url = extract_url(text)
     if not url:
         if update.effective_chat.type == "private":
             await msg.reply_text(
                 "🔍 Не нашёл ссылку.\n"
                 "Отправь ссылку на YouTube, TikTok, Instagram и т.д.",
-                reply_markup=main_menu_keyboard(user_id),
             )
         return
 
-    sender_name     = ""
-    sender_username = ""
+    sender_name = sender_username = ""
     if update.effective_chat.type in ("group", "supergroup"):
         user = msg.from_user
         if user:
