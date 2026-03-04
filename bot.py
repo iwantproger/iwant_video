@@ -31,6 +31,7 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     InlineQueryHandler,
+    ChosenInlineResultHandler,
     CallbackQueryHandler,
     ContextTypes,
     filters,
@@ -1347,67 +1348,137 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def chosen_inline_result(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Вызывается когда пользователь выбрал инлайн-результат.
+    Скачивает видео и отправляет в личку, обновляя инлайн-сообщение в чате.
+    """
     result = update.chosen_inline_result
     if not result:
         return
-    url = (context.bot_data.pop(f"inline_{result.inline_message_id}", None)
-           or extract_url(result.query))
+
+    url = extract_url(result.query)
     if not url:
         return
-    user_id = result.from_user.id
-    prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
-    kk      = is_kk_platform(url)
+
+    user_id       = result.from_user.id
+    inline_msg_id = result.inline_message_id  # ID сообщения в чате (для редактирования)
+    prefs         = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+    kk            = is_kk_platform(url)
+    label         = get_platform_label(url)
     track_request(context.bot_data, user_id)
+
+    async def edit_inline(text: str, markup=None) -> None:
+        """Редактирует инлайн-сообщение в чате где была использована команда."""
+        try:
+            kwargs = dict(inline_message_id=inline_msg_id, text=text,
+                         parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            if markup:
+                kwargs["reply_markup"] = markup
+            await context.bot.edit_message_text(**kwargs)
+        except TelegramError as e:
+            logger.warning(f"edit_inline failed: {e}")
+
+    # Пробуем отправить статус в личку пользователю
+    status_msg = None
     try:
-        await context.bot.send_message(
-            chat_id=user_id, text=f"⏳ Скачиваю...\n🔗 {url}",
+        status_msg = await context.bot.send_message(
+            chat_id=user_id,
+            text=f"⏳ Скачиваю {label.lower()}...\n🔗 {url}",
             disable_notification=True,
         )
+    except TelegramError:
+        # Пользователь не открыл личку с ботом — просим это сделать
+        await edit_inline(
+            f"👆 Чтобы получить видео в личку, сначала открой бот:\n"
+            f"➡️ <a href=\'{BOT_LINK}\'>Нажми Start</a>\n\n"
+            f"🔗 {url}",
+            markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🤖 Открыть бота", url=BOT_LINK)
+            ]])
+        )
+        return
+
+    # Скачиваем
+    loop = asyncio.get_event_loop()
+    try:
         with tempfile.TemporaryDirectory() as tmpdir:
-            r = await asyncio.get_event_loop().run_in_executor(
-                None, download_video, url, tmpdir
-            )
-            if r:
-                stats_str = build_stats_str(r)
-                caption   = build_caption(
-                    url=url, title=r["title"],
-                    description=r["description"], stats_str=stats_str,
-                    show_desc=prefs["desc"], show_stats=prefs["stats"],
-                    show_sender=False,
-                )
-                with open(r["path"], "rb") as vf:
-                    sent = await context.bot.send_video(
-                        chat_id=user_id, video=vf,
-                        caption=caption, parse_mode=ParseMode.HTML,
-                        duration=r.get("duration"),
-                        width=r.get("width"), height=r.get("height"),
-                        supports_streaming=True, disable_notification=True,
-                    )
-                file_id = sent.video.file_id if sent.video else None
-                await context.bot.edit_message_reply_markup(
-                    chat_id=user_id, message_id=sent.message_id,
-                    reply_markup=make_single_settings_keyboard(user_id, sent.message_id),
-                )
-                context.bot_data[f"vid:{user_id}:{sent.message_id}"] = {
-                    "url": url, "kk_url": to_kk_url(url) if kk else "",
-                    "is_kk": kk, "kk_active": False, "file_id": file_id,
-                    "kk_msg_id": None, "bot_msg_id": sent.message_id,
-                    "title": r["title"], "description": r["description"],
-                    "stats_str": stats_str,
-                    "show_desc": prefs["desc"], "show_stats": prefs["stats"],
-                    "show_sender": False,
-                    "sender_name": "", "sender_username": "",
-                    "sender_user_id": user_id,
-                    "duration": r.get("duration"),
-                    "width": r.get("width"), "height": r.get("height"), "reply_to": None,
-                }
-                track_success(context.bot_data, user_id)
-            else:
+            r = await loop.run_in_executor(None, download_video, url, tmpdir)
+
+            if r is None:
                 track_failed(context.bot_data)
-                await context.bot.send_message(
-                    chat_id=user_id, text=f"❌ Не удалось скачать.\n🔗 {url}",
-                    disable_notification=True,
+                # Обновляем инлайн-сообщение — ошибка
+                await edit_inline(
+                    f"❌ Не удалось скачать {label.lower()}.\n\n"
+                    f"🔗 <a href=\'{url}\'>Открыть оригинал</a>",
+                    markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔗 Открыть оригинал", url=url)
+                    ]])
                 )
+                try:
+                    await status_msg.delete()
+                except TelegramError:
+                    pass
+                return
+
+            stats_str = build_stats_str(r)
+            user      = result.from_user
+            s_name    = user.full_name or user.first_name or ""
+            s_uname   = user.username or ""
+            caption   = build_caption(
+                url=url, title=r["title"],
+                description=r["description"], stats_str=stats_str,
+                show_desc=prefs["desc"], show_stats=prefs["stats"],
+                sender_name=s_name, sender_username=s_uname,
+                show_sender=bool(s_name),
+            )
+
+            # Отправляем видео в личку
+            with open(r["path"], "rb") as vf:
+                sent = await context.bot.send_video(
+                    chat_id=user_id, video=vf,
+                    caption=caption, parse_mode=ParseMode.HTML,
+                    duration=r.get("duration"),
+                    width=r.get("width"), height=r.get("height"),
+                    supports_streaming=True, disable_notification=True,
+                )
+
+            file_id = sent.video.file_id if sent.video else None
+            await context.bot.edit_message_reply_markup(
+                chat_id=user_id, message_id=sent.message_id,
+                reply_markup=make_single_settings_keyboard(user_id, sent.message_id),
+            )
+            context.bot_data[f"vid:{user_id}:{sent.message_id}"] = {
+                "url": url, "kk_url": to_kk_url(url) if kk else "",
+                "is_kk": kk, "kk_active": False, "file_id": file_id,
+                "kk_msg_id": None, "bot_msg_id": sent.message_id,
+                "title": r["title"], "description": r["description"],
+                "stats_str": stats_str,
+                "show_desc": prefs["desc"], "show_stats": prefs["stats"],
+                "show_sender": bool(s_name),
+                "sender_name": s_name, "sender_username": s_uname,
+                "sender_user_id": user_id,
+                "duration": r.get("duration"),
+                "width": r.get("width"), "height": r.get("height"), "reply_to": None,
+            }
+            track_success(context.bot_data, user_id)
+
+            # Удаляем статус в личке — там теперь видео
+            try:
+                await status_msg.delete()
+            except TelegramError:
+                pass
+
+            # Обновляем инлайн-сообщение в чате: "✅ отправлено в личку"
+            await edit_inline(
+                f"✅ <b>{label}</b>\n"
+                f"🔗 <a href=\'{url}\'>Оригинал</a>  •  "
+                f"🤖 <a href=\'{BOT_LINK}\'>@{BOT_USERNAME}</a>\n\n"
+                f"<i>Видео отправлено в личку 👇</i>",
+                markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("📩 Открыть личку", url=f"https://t.me/{BOT_USERNAME}")
+                ]])
+            )
+
     except TelegramError as e:
         logger.error(f"chosen_inline_result error: {e}")
 
@@ -1430,6 +1501,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(InlineQueryHandler(inline_query))
+    app.add_handler(ChosenInlineResultHandler(chosen_inline_result))
 
     logger.info("🎬 Бот, Смотри прикол — запущен!")
     app.run_polling(drop_pending_updates=True)
