@@ -386,6 +386,8 @@ def download_video(
         elif status == "finished":
             status_callback("⚙️ Обрабатываю видео...")
 
+    is_instagram = bool(re.search(r"instagram\.com", url, re.IGNORECASE))
+
     ydl_opts = {
         "format":              video_format,
         "outtmpl":             output_template,
@@ -398,11 +400,17 @@ def download_video(
         "progress_hooks":      [progress_hook],
         "http_headers": {
             "User-Agent": (
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                "Version/17.0 Mobile/15E148 Safari/604.1"
+                if is_instagram else
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/120.0.0.0 Safari/537.36"
             )
         },
+        # Instagram: пробуем без проверки сертификатов и с доп. заголовками
+        **({"extractor_args": {"instagram": {"webpage_download": ["1"]}}} if is_instagram else {}),
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -653,6 +661,60 @@ async def process_and_send_video(
 
             if r is None:
                 track_failed(context.bot_data)
+
+                # Instagram/TikTok: автоматически переключаемся на kk-зеркало
+                if is_kk_platform(url):
+                    kk_url   = to_kk_url(url)
+                    label    = get_platform_label(url)
+                    _prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+                    _sn, _su = sender_name, sender_username
+                    if _sn:
+                        if _su:
+                            hdr = (f'<b>{label} от '
+                                   f'<a href="https://t.me/{_su}">{_sn}</a></b>')
+                        else:
+                            hdr = f"<b>{label} от {_sn}</b>"
+                    else:
+                        hdr = f"<b>{label}</b>"
+                    kk_text = (
+                        f"{hdr}\n\n"
+                        f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
+                        f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+                    )
+                    try:
+                        await status_msg.edit_text(
+                            kk_text,
+                            parse_mode=ParseMode.HTML,
+                            disable_web_page_preview=False,
+                            reply_markup=make_single_settings_keyboard(
+                                chat_id, status_msg.message_id
+                            ),
+                        )
+                        context.bot_data[f"vid:{chat_id}:{status_msg.message_id}"] = {
+                            "url":             url,
+                            "kk_url":          kk_url,
+                            "is_kk":           True,
+                            "kk_active":       True,
+                            "file_id":         None,
+                            "kk_msg_id":       status_msg.message_id,
+                            "bot_msg_id":      None,
+                            "title":           "",
+                            "description":     "",
+                            "stats_str":       "",
+                            "show_desc":       _prefs["desc"],
+                            "show_stats":      _prefs["stats"],
+                            "show_sender":     _prefs.get("show_sender", True),
+                            "sender_name":     sender_name,
+                            "sender_username": sender_username,
+                            "sender_user_id":  sender_user_id,
+                            "duration":        None, "width": None,
+                            "height":          None, "reply_to": reply_to,
+                        }
+                    except TelegramError:
+                        pass
+                    return
+
+                # Для остальных платформ — обычная ошибка
                 await status_msg.edit_text(
                     "❌ Не удалось скачать видео.\n\n"
                     "▪️ Видео недоступно или удалено\n"
@@ -1301,12 +1363,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
         return
 
+    # Имя отправителя — всегда, в любом типе чата
     sender_name = sender_username = ""
-    if update.effective_chat.type in ("group", "supergroup"):
-        user = msg.from_user
-        if user:
-            sender_name     = user.full_name or user.first_name or ""
-            sender_username = user.username or ""
+    user = msg.from_user
+    if user:
+        sender_name     = user.full_name or user.first_name or ""
+        sender_username = user.username or ""
 
     delete_source_msg_id = msg.message_id if is_url_only(text, url) else None
 
