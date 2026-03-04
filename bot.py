@@ -97,7 +97,10 @@ def main_menu_keyboard(user_id: int) -> ReplyKeyboardMarkup:
 
 
 async def ensure_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Отправляет клавиатуру пользователю при первом обращении."""
+    """Отправляет клавиатуру только в личном чате с ботом при первом обращении."""
+    # В группах клавиатуру не показываем вообще
+    if update.effective_chat and update.effective_chat.type != "private":
+        return
     if context.user_data.get("kb_sent"):
         return
     context.user_data["kb_sent"] = True
@@ -1151,98 +1154,99 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user_id = msg.from_user.id if msg.from_user else 0
     state   = context.user_data.get("state", STATE_IDLE)
     is_admin = not ADMIN_USER_ID or user_id == ADMIN_USER_ID
+    is_private = update.effective_chat.type == "private"
 
-    # Отправляем клавиатуру при первом сообщении (если пользователь не нажимал /start)
-    await ensure_keyboard(update, context)
+    # Клавиатуру показываем только в личке
+    if is_private:
+        await ensure_keyboard(update, context)
 
-    # ── Кнопки меню пользователя ──────────────────────────────────────────────
-    if text == "⚙️ Настройки":
-        await cmd_settings(update, context)
-        return
+    # ── Кнопки меню — только в личном чате ───────────────────────────────────
+    if is_private:
+        if text == "⚙️ Настройки":
+            await cmd_settings(update, context)
+            return
 
-    if text == "❓ Помощь":
-        await cmd_help(update, context)
-        return
+        if text == "❓ Помощь":
+            await cmd_help(update, context)
+            return
 
-    if text == "🔄 Сбросить":
-        await cmd_reset(update, context)
-        return
+        if text == "🔄 Сбросить":
+            await cmd_reset(update, context)
+            return
 
-    if text == "🆘 Поддержка":
-        context.user_data["state"] = STATE_SUPPORT
-        await msg.reply_text(
-            "🆘 <b>Поддержка</b>\n\n"
-            "Напиши своё сообщение — я передам его автору бота.\n\n"
-            "<i>Отправь /cancel для отмены.</i>",
-            parse_mode=ParseMode.HTML,
-        )
-        return
+        if text == "🆘 Поддержка":
+            context.user_data["state"] = STATE_SUPPORT
+            await msg.reply_text(
+                "🆘 <b>Поддержка</b>\n\n"
+                "Напиши своё сообщение — я передам его автору бота.\n\n"
+                "<i>Отправь /cancel для отмены.</i>",
+                parse_mode=ParseMode.HTML,
+            )
+            return
 
-    # ── Кнопки меню администратора ────────────────────────────────────────────
-    if text == "📊 Статистика" and is_admin:
-        await cmd_stats(update, context)
-        return
+        if text == "📊 Статистика" and is_admin:
+            await cmd_stats(update, context)
+            return
 
-    if text == "📢 Рассылка" and is_admin:
-        context.user_data["state"] = STATE_BROADCAST_INPUT
-        await msg.reply_text(
-            "📢 <b>Рассылка</b>\n\nНапиши текст — уйдёт всем пользователям.\n\n"
-            "<i>Отправь /cancel для отмены.</i>",
-            parse_mode=ParseMode.HTML,
-        )
-        return
+        if text == "📢 Рассылка" and is_admin:
+            context.user_data["state"] = STATE_BROADCAST_INPUT
+            await msg.reply_text(
+                "📢 <b>Рассылка</b>\n\nНапиши текст — уйдёт всем пользователям.\n\n"
+                "<i>Отправь /cancel для отмены.</i>",
+                parse_mode=ParseMode.HTML,
+            )
+            return
 
-    # ── Режим поддержки ───────────────────────────────────────────────────────
-    if state == STATE_SUPPORT:
-        context.user_data["state"] = STATE_IDLE
-        user  = msg.from_user
-        name  = user.full_name or user.first_name or "Аноним"
-        uname = f"@{user.username}" if user.username else f"id: {user_id}"
-        if ADMIN_USER_ID:
-            try:
-                await context.bot.send_message(
-                    chat_id=ADMIN_USER_ID,
-                    text=(
-                        f"📩 <b>Сообщение в поддержку</b>\n\n"
-                        f"👤 <b>{name}</b> ({uname})\n"
-                        f"🆔 <code>{user_id}</code>\n\n"
-                        f"💬 {text}"
-                    ),
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(
-                            f"✉️ Ответить {name}",
-                            callback_data=f"reply_user:{user_id}:{name[:20]}"
-                        )
-                    ]]),
-                )
-            except TelegramError as e:
-                logger.error(f"Ошибка отправки в поддержку: {e}")
-        await msg.reply_text("✅ Сообщение отправлено! Постараюсь ответить как можно скорее.")
-        return
+    # ── Состояния диалога — тоже только в личке ───────────────────────────────
+    if is_private:
+        if state == STATE_SUPPORT:
+            context.user_data["state"] = STATE_IDLE
+            user  = msg.from_user
+            name  = user.full_name or user.first_name or "Аноним"
+            uname = f"@{user.username}" if user.username else f"id: {user_id}"
+            if ADMIN_USER_ID:
+                try:
+                    await context.bot.send_message(
+                        chat_id=ADMIN_USER_ID,
+                        text=(
+                            f"📩 <b>Сообщение в поддержку</b>\n\n"
+                            f"👤 <b>{name}</b> ({uname})\n"
+                            f"🆔 <code>{user_id}</code>\n\n"
+                            f"💬 {text}"
+                        ),
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton(
+                                f"✉️ Ответить {name}",
+                                callback_data=f"reply_user:{user_id}:{name[:20]}"
+                            )
+                        ]]),
+                    )
+                except TelegramError as e:
+                    logger.error(f"Ошибка отправки в поддержку: {e}")
+            await msg.reply_text("✅ Сообщение отправлено! Постараюсь ответить как можно скорее.")
+            return
 
-    # ── Режим рассылки (admin) ────────────────────────────────────────────────
-    if state == STATE_BROADCAST_INPUT and is_admin:
-        context.user_data["state"] = STATE_IDLE
-        await do_broadcast(update, context, text)
-        return
+        if state == STATE_BROADCAST_INPUT and is_admin:
+            context.user_data["state"] = STATE_IDLE
+            await do_broadcast(update, context, text)
+            return
 
-    # ── Режим ответа пользователю (admin) ────────────────────────────────────
-    if state == STATE_REPLY_SUPPORT and is_admin:
-        target_uid  = context.user_data.pop("reply_to_user", None)
-        target_name = context.user_data.pop("reply_to_name", "пользователю")
-        context.user_data["state"] = STATE_IDLE
-        if target_uid:
-            try:
-                await context.bot.send_message(
-                    chat_id=target_uid,
-                    text=f"💬 <b>Ответ от поддержки:</b>\n\n{text}",
-                    parse_mode=ParseMode.HTML,
-                )
-                await msg.reply_text(f"✅ Ответ отправлен {target_name}.")
-            except TelegramError as e:
-                await msg.reply_text(f"❌ Не удалось отправить: {e}")
-        return
+        if state == STATE_REPLY_SUPPORT and is_admin:
+            target_uid  = context.user_data.pop("reply_to_user", None)
+            target_name = context.user_data.pop("reply_to_name", "пользователю")
+            context.user_data["state"] = STATE_IDLE
+            if target_uid:
+                try:
+                    await context.bot.send_message(
+                        chat_id=target_uid,
+                        text=f"💬 <b>Ответ от поддержки:</b>\n\n{text}",
+                        parse_mode=ParseMode.HTML,
+                    )
+                    await msg.reply_text(f"✅ Ответ отправлен {target_name}.")
+                except TelegramError as e:
+                    await msg.reply_text(f"❌ Не удалось отправить: {e}")
+            return
 
     # ── Ссылка на видео ───────────────────────────────────────────────────────
     url = extract_url(text)
