@@ -261,6 +261,17 @@ def to_kk_url(url: str) -> str:
     return url
 
 
+def get_platform_label(url: str) -> str:
+    """Возвращает русское название типа контента по ссылке."""
+    if re.search(r"instagram\.com", url, re.IGNORECASE):
+        return "Рилс"
+    if re.search(r"tiktok\.com", url, re.IGNORECASE):
+        return "Тикток"
+    if re.search(r"youtube\.com/shorts", url, re.IGNORECASE):
+        return "Шортс"
+    return "Видео"
+
+
 # ─── FFmpeg ───────────────────────────────────────────────────────────────────
 def get_pixel_format(file_path: str) -> str | None:
     try:
@@ -466,7 +477,21 @@ def build_caption(
     show_sender: bool = True,
 ) -> str:
     parts = []
-    parts.append(f"<b>Смотри прикол! {title}</b>" if title else "<b>Смотри прикол!</b>")
+
+    # Заголовок: "Рилс от Иван Лазарев" / "Видео от ..." / просто "Шортс"
+    label = get_platform_label(url)
+    if show_sender and sender_name:
+        if sender_username:
+            header = (
+                f'<b>{label} от '
+                f'<a href="https://t.me/{sender_username}">{sender_name}</a></b>'
+            )
+        else:
+            header = f"<b>{label} от {sender_name}</b>"
+    else:
+        header = f"<b>{label}</b>"
+    parts.append(header)
+
     if show_stats and stats_str:
         parts.append(f"\n{stats_str}")
     if show_desc and description:
@@ -474,13 +499,6 @@ def build_caption(
     parts.append(
         f"\n\n🔗 <a href='{url}'>Оригинал</a>  •  🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
     )
-    if show_sender and sender_name:
-        if sender_username:
-            parts.append(
-                f"\n\n<i>Отправил: <a href='https://t.me/{sender_username}'>{sender_name}</a></i>"
-            )
-        else:
-            parts.append(f"\n\n<i>Отправил: {sender_name}</i>")
     return "".join(parts)
 
 
@@ -1007,8 +1025,12 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # ─── Команды ──────────────────────────────────────────────────────────────────
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
+    is_private = update.effective_chat.type == "private"
     context.user_data["kb_sent"] = True
     track_user(context.bot_data, user_id)
+    kwargs = dict(parse_mode=ParseMode.HTML)
+    if is_private:
+        kwargs["reply_markup"] = main_menu_keyboard(user_id)
     await update.message.reply_text(
         "👋 <b>Привет! Я — Бот, Смотри прикол 🎬</b>\n\n"
         "Скидывай ссылки на видео — скачаю и пришлю прямо в чат.\n\n"
@@ -1017,13 +1039,19 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "▪️ Instagram Reels\n"
         "▪️ Twitter / X\n"
         "▪️ Vimeo, Reddit, Twitch и 1000+ других сайтов\n\n"
-        "Используй кнопки меню снизу 👇",
-        parse_mode=ParseMode.HTML,
-        reply_markup=main_menu_keyboard(user_id),
+        + ("Используй кнопки меню снизу 👇" if is_private else "Пиши мне в личку — там удобнее 😊"),
+        **kwargs,
     )
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat and update.effective_chat.type != "private":
+        await update.message.reply_text(
+            f"❓ Справка доступна в личном чате со мной.\n"
+            f"➡️ <a href='https://t.me/{BOT_USERNAME}'>Открыть личный чат</a>",
+            parse_mode=ParseMode.HTML, disable_web_page_preview=True,
+        )
+        return
     await ensure_keyboard(update, context)
     prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
     d  = "✅" if prefs.get("desc")               else "☑️"
@@ -1044,6 +1072,13 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat and update.effective_chat.type != "private":
+        await update.message.reply_text(
+            f"⚙️ Настройки доступны в личном чате со мной.\n"
+            f"➡️ <a href='https://t.me/{BOT_USERNAME}'>Открыть личный чат</a>",
+            parse_mode=ParseMode.HTML, disable_web_page_preview=True,
+        )
+        return
     await ensure_keyboard(update, context)
     prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
     await update.message.reply_text(
@@ -1054,6 +1089,13 @@ async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat and update.effective_chat.type != "private":
+        await update.message.reply_text(
+            f"🔄 Сброс доступен в личном чате со мной.\n"
+            f"➡️ <a href='https://t.me/{BOT_USERNAME}'>Открыть личный чат</a>",
+            parse_mode=ParseMode.HTML, disable_web_page_preview=True,
+        )
+        return
     context.user_data.clear()
     context.user_data["kb_sent"] = True
     await update.message.reply_text(
