@@ -101,13 +101,7 @@ async def ensure_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     context.user_data["kb_sent"] = True
     user_id = update.effective_user.id if update.effective_user else 0
-    try:
-        await update.effective_message.reply_text(
-            "👋 Привет! Используй кнопки меню снизу 👇",
-            reply_markup=main_menu_keyboard(user_id),
-        )
-    except Exception:
-        pass
+    # Клавиатура появится при следующем ответе бота — без лишнего приветствия
 
 
 # ─── Статистика (персистентная через JSON) ────────────────────────────────────
@@ -604,11 +598,18 @@ async def process_and_send_video(
 
     track_request(context.bot_data, uid)
 
+    # Если клавиатура ещё не показана — добавим её к первому сообщению бота (без отдельного приветствия)
+    is_private = update.effective_chat.type == "private"
+    first_reply_markup = None
+    if is_private and not context.user_data.get("kb_sent"):
+        context.user_data["kb_sent"] = True
+        first_reply_markup = main_menu_keyboard(uid)
+
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
         text="⏳ Скачиваю видео, подожди немного...",
         reply_to_message_id=reply_to,
-        reply_markup=make_cancel_keyboard(chat_id, 0),
+        reply_markup=first_reply_markup or make_cancel_keyboard(chat_id, 0),
         disable_notification=True,
     )
     await context.bot.edit_message_reply_markup(
@@ -1020,8 +1021,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else:
             _hdr = f"<b>{_lbl}</b>"
         kk_text = (
-            f"{_hdr}\n\n"
-            f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
+            f"🔗 <a href='{kk_url}'>{kk_url}</a>\n"
+            f"{_hdr}\n"
             f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
         )
         try:
