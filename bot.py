@@ -522,7 +522,6 @@ def make_expanded_keyboard(
     is_kk: bool, kk_active: bool = False,
     sender_user_id: int = 0,
 ) -> InlineKeyboardMarkup:
-    del_btn      = InlineKeyboardButton("🗑️ Удалить",  callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}")
     info_btn     = InlineKeyboardButton("ℹ️ Доп.инфа", callback_data=f"info:{chat_id}:{msg_id}")
     collapse_btn = InlineKeyboardButton("✖️ Свернуть", callback_data=f"collapse:{chat_id}:{msg_id}")
     if is_kk:
@@ -533,12 +532,12 @@ def make_expanded_keyboard(
                 InlineKeyboardButton(bot_label, callback_data=f"sw_bot:{chat_id}:{msg_id}"),
                 InlineKeyboardButton(kk_label,  callback_data=f"sw_kk:{chat_id}:{msg_id}"),
             ],
-            [info_btn, del_btn],
+            [info_btn],
             [collapse_btn],
         ])
     else:
         return InlineKeyboardMarkup([
-            [info_btn, del_btn],
+            [info_btn],
             [collapse_btn],
         ])
 
@@ -555,10 +554,7 @@ def make_info_keyboard(
             InlineKeyboardButton(d, callback_data=f"tog:{chat_id}:{msg_id}:desc"),
             InlineKeyboardButton(s, callback_data=f"tog:{chat_id}:{msg_id}:stats"),
         ],
-        [
-            InlineKeyboardButton("🗑️ Удалить",  callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}"),
-            InlineKeyboardButton("💾 Сохранить", callback_data=f"save:{chat_id}:{msg_id}"),
-        ],
+        [InlineKeyboardButton("💾 Сохранить", callback_data=f"save:{chat_id}:{msg_id}")],
         [InlineKeyboardButton("← Назад", callback_data=f"back:{chat_id}:{msg_id}")],
     ])
 
@@ -713,10 +709,6 @@ async def process_and_send_video(
                         "🔗 Попробовать через kk",
                         callback_data=f"try_kk:{chat_id}:{status_msg.message_id}:{uid}"
                     ))
-                buttons.append(InlineKeyboardButton(
-                    "🗑️ Удалить",
-                    callback_data=f"del_status:{chat_id}:{status_msg.message_id}:{uid}"
-                ))
                 await status_msg.edit_text(
                     err_text,
                     parse_mode=ParseMode.HTML,
@@ -842,8 +834,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else:
             _hdr = f"<b>{_lbl}</b>"
         kk_text = (
-            f"{kk_url}\n"
-            f"{_hdr}\n"
+            f"{kk_url}\n\n"
+            f"{_hdr}\n\n"
             f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
         )
         try:
@@ -852,12 +844,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 text=kk_text,
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=False,
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        "🗑️ Удалить",
-                        callback_data=f"del_status:{t_chat_id}:{t_msg_id}:{allowed_uid}"
-                    )
-                ]]),
+                reply_markup=None,
             )
         except TelegramError as e:
             logger.error(f"try_kk error: {e}")
@@ -1065,8 +1052,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else:
             _hdr = f"<b>{_lbl}</b>"
         kk_text = (
-            f"{kk_url}\n"
-            f"{_hdr}\n"
+            f"{kk_url}\n\n"
+            f"{_hdr}\n\n"
             f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
         )
         try:
@@ -1174,7 +1161,6 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "<b>Кнопка ⚙️ под видео:</b>\n"
         "🤖/🔗 — переключить Бот ↔ kk-зеркало\n"
         "ℹ️ Доп.инфа — описание, статистика, сохранение\n"
-        "🗑️ Удалить — убрать сообщение\n\n"
         f"<b>Твои настройки:</b> {d} Описание  {s} Статистика  {ad} Авто-удаление\n\n"
         "Лимит: 50 МБ",
         parse_mode=ParseMode.HTML,
