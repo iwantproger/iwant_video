@@ -21,6 +21,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
     KeyboardButton,
 )
 from telegram.ext import (
@@ -375,6 +376,8 @@ def download_video(
         elif status == "finished":
             status_callback("⚙️ Обрабатываю видео...")
 
+    is_instagram = bool(re.search(r"instagram\.com", url, re.IGNORECASE))
+
     ydl_opts = {
         "format":              video_format,
         "outtmpl":             output_template,
@@ -387,6 +390,11 @@ def download_video(
         "progress_hooks":      [progress_hook],
         "http_headers": {
             "User-Agent": (
+                # Instagram лучше работает с мобильным UA
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) "
+                "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                "Version/17.5 Mobile/15E148 Safari/604.1"
+                if is_instagram else
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/120.0.0.0 Safari/537.36"
@@ -432,15 +440,22 @@ def download_video(
                 "view_count":    info.get("view_count"),
                 "like_count":    info.get("like_count"),
                 "comment_count": info.get("comment_count"),
-            }
+            }, None
     except DownloadCancelled:
-        return None
+        return None, None
     except yt_dlp.utils.DownloadError as e:
+        err = str(e).lower()
         logger.error(f"DownloadError: {e}")
-        return None
+        if "login" in err or "sign in" in err or "private" in err or "auth" in err:
+            return None, "auth"
+        if "filesize" in err or "too large" in err or "maxfilesize" in err:
+            return None, "size"
+        if "unavailable" in err or "not available" in err or "deleted" in err:
+            return None, "unavailable"
+        return None, "unknown"
     except Exception as e:
         logger.error(f"download_video error: {e}")
-        return None
+        return None, "unknown"
 
 
 # ─── Подпись ──────────────────────────────────────────────────────────────────
@@ -472,10 +487,7 @@ def build_caption(
     label = get_platform_label(url)
     if show_sender and sender_name:
         if sender_username:
-            header = (
-                f'<b>{label} от '
-                f'<a href="https://t.me/{sender_username}">{sender_name}</a></b>'
-            )
+            header = f'<b>{label} от <a href="https://t.me/{sender_username}">{sender_name}</a></b>'
         else:
             header = f"<b>{label} от {sender_name}</b>"
     else:
@@ -598,8 +610,20 @@ async def process_and_send_video(
 
     track_request(context.bot_data, uid)
 
-    # Если клавиатура ещё не показана — добавим её к первому сообщению бота (без отдельного приветствия)
+    # В группах принудительно убираем ReplyKeyboard (если вдруг появилась от старой версии)
     is_private = update.effective_chat.type == "private"
+    if not is_private and not context.bot_data.get(f"kb_removed:{chat_id}"):
+        context.bot_data[f"kb_removed:{chat_id}"] = True
+        try:
+            rm = await context.bot.send_message(
+                chat_id=chat_id, text=".",
+                reply_markup=ReplyKeyboardRemove(), disable_notification=True,
+            )
+            await context.bot.delete_message(chat_id=chat_id, message_id=rm.message_id)
+        except Exception:
+            pass
+
+    # Если клавиатура ещё не показана — добавим её к первому сообщению бота (без отдельного приветствия)
     first_reply_markup = None
     if is_private and not context.user_data.get("kb_sent"):
         context.user_data["kb_sent"] = True
@@ -641,7 +665,7 @@ async def process_and_send_video(
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
-            r = await loop.run_in_executor(
+            r, dl_error = await loop.run_in_executor(
                 None, download_video, url, tmpdir, cancel_event, status_callback
             )
             if cancel_event.is_set():
@@ -650,72 +674,53 @@ async def process_and_send_video(
             if r is None:
                 track_failed(context.bot_data)
 
-                # Instagram/TikTok: автоматически переключаемся на kk-зеркало
-                if is_kk_platform(url):
-                    kk_url   = to_kk_url(url)
-                    label    = get_platform_label(url)
-                    _prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
-                    _sn, _su = sender_name, sender_username
-                    if _sn:
-                        if _su:
-                            hdr = (f'<b>{label} от '
-                                   f'<a href="https://t.me/{_su}">{_sn}</a></b>')
-                        else:
-                            hdr = f"<b>{label} от {_sn}</b>"
-                    else:
-                        hdr = f"<b>{label}</b>"
-                    kk_text = (
-                        f"{hdr}\n\n"
-                        f"🔗 <a href='{kk_url}'>{kk_url}</a>\n\n"
-                        f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+                # Конкретное сообщение об ошибке
+                if dl_error == "auth":
+                    err_text = (
+                        "🔒 <b>Требуется авторизация</b>\n\n"
+                        "Этот аккаунт или видео закрыто — бот не может скачать без входа в аккаунт.\n\n"
+                        f"🔗 <a href='{url}'>Открыть оригинал</a>"
                     )
-                    try:
-                        await status_msg.edit_text(
-                            kk_text,
-                            parse_mode=ParseMode.HTML,
-                            disable_web_page_preview=False,
-                            reply_markup=make_single_settings_keyboard(
-                                chat_id, status_msg.message_id
-                            ),
-                        )
-                        context.bot_data[f"vid:{chat_id}:{status_msg.message_id}"] = {
-                            "url":             url,
-                            "kk_url":          kk_url,
-                            "is_kk":           True,
-                            "kk_active":       True,
-                            "file_id":         None,
-                            "kk_msg_id":       status_msg.message_id,
-                            "bot_msg_id":      None,
-                            "title":           "",
-                            "description":     "",
-                            "stats_str":       "",
-                            "show_desc":       _prefs["desc"],
-                            "show_stats":      _prefs["stats"],
-                            "show_sender":     _prefs.get("show_sender", True),
-                            "sender_name":     sender_name,
-                            "sender_username": sender_username,
-                            "sender_user_id":  sender_user_id,
-                            "duration":        None, "width": None,
-                            "height":          None, "reply_to": reply_to,
-                        }
-                    except TelegramError:
-                        pass
-                    return
-
-                # Для остальных платформ — обычная ошибка
+                elif dl_error == "size":
+                    err_text = (
+                        "📦 <b>Файл слишком большой</b>\n\n"
+                        "Видео превышает лимит 50 МБ — Telegram не позволяет отправить больше.\n\n"
+                        f"🔗 <a href='{url}'>Открыть оригинал</a>"
+                    )
+                elif dl_error == "unavailable":
+                    err_text = (
+                        "🚫 <b>Видео недоступно</b>\n\n"
+                        "Возможно, оно удалено или ограничено по региону.\n\n"
+                        f"🔗 <a href='{url}'>Проверить ссылку</a>"
+                    )
+                else:
+                    err_text = (
+                        "❌ <b>Не удалось скачать</b>\n\n"
+                        "▪️ Видео недоступно или удалено\n"
+                        "▪️ Файл больше 50 МБ\n"
+                        "▪️ Сервис временно недоступен\n\n"
+                        f"🔗 <a href='{url}'>Открыть по ссылке</a>"
+                    )
+                buttons = []
+                if is_kk_platform(url):
+                    kk_url = to_kk_url(url)
+                    context.bot_data[f"fail:{chat_id}:{status_msg.message_id}"] = {
+                        "url": url, "kk_url": kk_url,
+                        "sender_name": sender_name, "sender_username": sender_username,
+                        "sender_user_id": sender_user_id, "reply_to": reply_to,
+                    }
+                    buttons.append(InlineKeyboardButton(
+                        "🔗 Попробовать через kk",
+                        callback_data=f"try_kk:{chat_id}:{status_msg.message_id}:{uid}"
+                    ))
+                buttons.append(InlineKeyboardButton(
+                    "🗑️ Удалить",
+                    callback_data=f"del_status:{chat_id}:{status_msg.message_id}:{uid}"
+                ))
                 await status_msg.edit_text(
-                    "❌ Не удалось скачать видео.\n\n"
-                    "▪️ Видео недоступно или удалено\n"
-                    "▪️ Файл больше 50 МБ\n"
-                    "▪️ Сервис временно недоступен\n\n"
-                    f"🔗 <a href='{url}'>Открыть по ссылке</a>",
+                    err_text,
                     parse_mode=ParseMode.HTML,
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(
-                            "🗑️ Удалить",
-                            callback_data=f"del_status:{chat_id}:{status_msg.message_id}:{uid}"
-                        )
-                    ]]),
+                    reply_markup=InlineKeyboardMarkup([buttons]),
                 )
                 return
 
@@ -814,6 +819,48 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await context.bot.delete_message(chat_id=c_chat_id, message_id=c_status_id)
         except TelegramError:
             pass
+        return
+
+    # ── Попробовать через kk (из сообщения об ошибке) ───────────────────────────
+    if action == "try_kk":
+        if len(parts) < 4:
+            return
+        t_chat_id, t_msg_id, allowed_uid = int(parts[1]), int(parts[2]), int(parts[3])
+        if query.from_user.id != allowed_uid and allowed_uid != 0:
+            await query.answer("🚫 Только автор может использовать.", show_alert=True)
+            return
+        fail_data = context.bot_data.pop(f"fail:{t_chat_id}:{t_msg_id}", None)
+        if not fail_data:
+            await query.answer("Данные устарели.", show_alert=True)
+            return
+        kk_url  = fail_data["kk_url"]
+        _sn     = fail_data.get("sender_name", "")
+        _su     = fail_data.get("sender_username", "")
+        _lbl    = get_platform_label(fail_data["url"])
+        if _sn:
+            _hdr = f'<b>{_lbl} от <a href="https://t.me/{_su}">{_sn}</a></b>' if _su else f"<b>{_lbl} от {_sn}</b>"
+        else:
+            _hdr = f"<b>{_lbl}</b>"
+        kk_text = (
+            f"{kk_url}\n"
+            f"{_hdr}\n"
+            f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+        )
+        try:
+            await context.bot.edit_message_text(
+                chat_id=t_chat_id, message_id=t_msg_id,
+                text=kk_text,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=False,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        "🗑️ Удалить",
+                        callback_data=f"del_status:{t_chat_id}:{t_msg_id}:{allowed_uid}"
+                    )
+                ]]),
+            )
+        except TelegramError as e:
+            logger.error(f"try_kk error: {e}")
         return
 
     # ── Удаление сообщения об ошибке ──────────────────────────────────────────
@@ -1014,14 +1061,11 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         _su  = data.get("sender_username", "")
         _lbl = get_platform_label(data["url"])
         if _sn:
-            if _su:
-                _hdr = f'<b>{_lbl} от <a href="https://t.me/{_su}">{_sn}</a></b>'
-            else:
-                _hdr = f"<b>{_lbl} от {_sn}</b>"
+            _hdr = f'<b>{_lbl} от <a href="https://t.me/{_su}">{_sn}</a></b>' if _su else f"<b>{_lbl} от {_sn}</b>"
         else:
             _hdr = f"<b>{_lbl}</b>"
         kk_text = (
-            f"🔗 <a href='{kk_url}'>{kk_url}</a>\n"
+            f"{kk_url}\n"
             f"{_hdr}\n"
             f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
         )
