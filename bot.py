@@ -16,6 +16,7 @@ from datetime import date
 from pathlib import Path
 
 import yt_dlp
+import requests as req_lib
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -331,6 +332,103 @@ def fmt_eta(seconds) -> str:
     if seconds < 60:
         return f"~{int(seconds)} сек"
     return f"~{int(seconds // 60)} мин {int(seconds % 60)} сек"
+
+
+
+# ─── Instagram GraphQL fallback (без логина) ──────────────────────────────────
+# doc_id меняется раз в ~2-4 недели. Если перестало работать — обновить ниже.
+INSTAGRAM_GRAPHQL_DOC_ID = "25981206651899035"
+
+def instagram_graphql_download(url: str, output_dir: str) -> dict | None:
+    """
+    Скачивает Instagram Reels через GraphQL API без авторизации.
+    Работает для публичных аккаунтов.
+    """
+    try:
+        # Извлекаем shortcode из URL
+        sc_match = re.search(r"instagram\.com/(?:[^/]+/)?(?:reel|p)/([A-Za-z0-9_-]+)", url)
+        if not sc_match:
+            return None
+        shortcode = sc_match.group(1)
+
+        # Получаем csrftoken через обычный GET
+        session = req_lib.Session()
+        session.headers.update({
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/133.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+            "x-ig-app-id": "936619743392459",
+        })
+        r = session.get("https://www.instagram.com/", timeout=10)
+        csrf = session.cookies.get("csrftoken", "")
+
+        # GraphQL запрос за данными поста
+        headers = {
+            "content-type":   "application/x-www-form-urlencoded",
+            "x-csrftoken":    csrf,
+            "x-ig-app-id":    "936619743392459",
+            "x-requested-with": "XMLHttpRequest",
+            "referer":        "https://www.instagram.com/",
+        }
+        payload = f'variables={{"shortcode":"{shortcode}"}}&doc_id={INSTAGRAM_GRAPHQL_DOC_ID}'
+        resp = session.post(
+            "https://www.instagram.com/graphql/query",
+            headers=headers, data=payload, timeout=15,
+        )
+        data = resp.json()
+
+        # Ищем video_url в ответе (структура может меняться)
+        video_url = None
+        def find_video_url(obj):
+            if isinstance(obj, dict):
+                if "video_url" in obj and obj["video_url"]:
+                    return obj["video_url"]
+                for v in obj.values():
+                    found = find_video_url(v)
+                    if found:
+                        return found
+            elif isinstance(obj, list):
+                for item in obj:
+                    found = find_video_url(item)
+                    if found:
+                        return found
+            return None
+
+        video_url = find_video_url(data)
+        if not video_url:
+            logger.warning(f"instagram_graphql: video_url not found in response")
+            return None
+
+        # Скачиваем mp4 напрямую
+        output_path = os.path.join(output_dir, f"{shortcode}.mp4")
+        with session.get(video_url, stream=True, timeout=60) as dl:
+            dl.raise_for_status()
+            with open(output_path, "wb") as f:
+                for chunk in dl.iter_content(chunk_size=1024 * 256):
+                    if chunk:
+                        f.write(chunk)
+
+        if not Path(output_path).exists() or Path(output_path).stat().st_size < 1000:
+            return None
+
+        return {
+            "path":          output_path,
+            "title":         "",
+            "description":   "",
+            "width":         None,
+            "height":        None,
+            "duration":      None,
+            "view_count":    None,
+            "like_count":    None,
+            "comment_count": None,
+        }, None
+
+    except Exception as e:
+        logger.error(f"instagram_graphql_download error: {e}")
+        return None
 
 
 # ─── Скачивание ───────────────────────────────────────────────────────────────
@@ -657,7 +755,8 @@ async def process_and_send_video(
             ), loop,
         )
 
-    kk = is_kk_platform(url)
+    kk          = is_kk_platform(url)
+    is_instagram = bool(re.search(r"instagram\.com", url, re.IGNORECASE))
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -669,6 +768,64 @@ async def process_and_send_video(
 
             if r is None:
                 track_failed(context.bot_data)
+
+                # При auth-ошибке Instagram: пробуем GraphQL fallback
+                if dl_error == "auth" and is_instagram:
+                    logger.info("Trying Instagram GraphQL fallback...")
+                    try:
+                        await status_msg.edit_text("🔄 Пробую альтернативный метод...")
+                    except TelegramError:
+                        pass
+                    gql_result = await loop.run_in_executor(
+                        None, instagram_graphql_download, url, tmpdir
+                    )
+                    if gql_result and isinstance(gql_result, tuple):
+                        r, _ = gql_result
+                        # Успех — продолжаем как обычно
+                        if r:
+                            stats_str = build_stats_str(r)
+                            caption   = build_caption(
+                                url=url, title=r["title"],
+                                description=r["description"], stats_str=stats_str,
+                                show_desc=prefs["desc"], show_stats=prefs["stats"],
+                                sender_name=sender_name, sender_username=sender_username,
+                                show_sender=prefs.get("show_sender", True),
+                            )
+                            try:
+                                await status_msg.edit_text("📤 Отправляю видео...")
+                            except TelegramError:
+                                pass
+                            with open(r["path"], "rb") as vf:
+                                sent = await context.bot.send_video(
+                                    chat_id=chat_id, video=vf,
+                                    caption=caption, parse_mode=ParseMode.HTML,
+                                    duration=r.get("duration"),
+                                    width=r.get("width"), height=r.get("height"),
+                                    supports_streaming=True,
+                                    reply_to_message_id=reply_to,
+                                    disable_notification=True,
+                                )
+                            file_id = sent.video.file_id if sent.video else None
+                            await context.bot.edit_message_reply_markup(
+                                chat_id=chat_id, message_id=sent.message_id,
+                                reply_markup=make_single_settings_keyboard(chat_id, sent.message_id),
+                            )
+                            context.bot_data[f"vid:{chat_id}:{sent.message_id}"] = {
+                                "url": url, "kk_url": to_kk_url(url),
+                                "is_kk": True, "kk_active": False, "file_id": file_id,
+                                "kk_msg_id": None, "bot_msg_id": sent.message_id,
+                                "title": r["title"], "description": r["description"],
+                                "stats_str": stats_str,
+                                "show_desc": prefs["desc"], "show_stats": prefs["stats"],
+                                "show_sender": prefs.get("show_sender", True),
+                                "sender_name": sender_name, "sender_username": sender_username,
+                                "sender_user_id": sender_user_id,
+                                "duration": r.get("duration"),
+                                "width": r.get("width"), "height": r.get("height"), "reply_to": reply_to,
+                            }
+                            await status_msg.delete()
+                            track_success(context.bot_data, uid)
+                            return
 
                 # Конкретное сообщение об ошибке
                 if dl_error == "auth":
