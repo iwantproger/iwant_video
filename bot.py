@@ -620,17 +620,23 @@ def make_expanded_keyboard(
     chat_id: int, msg_id: int,
     is_kk: bool, kk_active: bool = False,
     sender_user_id: int = 0,
+    has_file: bool = True,
 ) -> InlineKeyboardMarkup:
     del_btn      = InlineKeyboardButton("🗑️ Удалить",  callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}")
     info_btn     = InlineKeyboardButton("ℹ️ Доп.инфа", callback_data=f"info:{chat_id}:{msg_id}")
     collapse_btn = InlineKeyboardButton("✖️ Свернуть", callback_data=f"collapse:{chat_id}:{msg_id}")
     if is_kk:
-        bot_label = "🤖 Через Бот ✅" if not kk_active else "🤖 Через Бот"
+        # Если файл недоступен — кнопка "Через бота" с крестиком и без действия
+        if has_file:
+            bot_label = "🤖 Через Бот ✅" if not kk_active else "🤖 Через Бот"
+            bot_btn   = InlineKeyboardButton(bot_label, callback_data=f"sw_bot:{chat_id}:{msg_id}")
+        else:
+            bot_btn   = InlineKeyboardButton("❌ Через Бот", callback_data=f"sw_bot:{chat_id}:{msg_id}")
         kk_label  = "🔗 Через kk ✅"  if kk_active     else "🔗 Через kk"
         return InlineKeyboardMarkup([
             [
-                InlineKeyboardButton(bot_label, callback_data=f"sw_bot:{chat_id}:{msg_id}"),
-                InlineKeyboardButton(kk_label,  callback_data=f"sw_kk:{chat_id}:{msg_id}"),
+                bot_btn,
+                InlineKeyboardButton(kk_label, callback_data=f"sw_kk:{chat_id}:{msg_id}"),
             ],
             [info_btn, del_btn],
             [collapse_btn],
@@ -1194,6 +1200,13 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if action == "sw_bot":
         if not data.get("kk_active"):
             await query.answer("Видео уже через бота ✅", show_alert=False)
+            return
+        # Если file_id нет — видео не было скачано, переключение невозможно
+        if not data.get("file_id"):
+            await query.answer(
+                "❌ Видео не удалось скачать — доступна только kk-ссылка",
+                show_alert=True
+            )
             return
 
         # Удаляем kk-сообщение
