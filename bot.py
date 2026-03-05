@@ -71,6 +71,7 @@ DEFAULT_PREFS = {
     "stats":       False,  # показывать статистику (просмотры, лайки)
     "auto_delete": False,  # удалять исходное сообщение если только ссылка
     "show_sender": True,   # показывать «Отправил:» в группах
+    "yt_enabled":  False,  # обрабатывать YouTube ссылки (по умолчанию выкл)
 }
 
 # Состояния диалога
@@ -620,6 +621,7 @@ def make_expanded_keyboard(
     is_kk: bool, kk_active: bool = False,
     sender_user_id: int = 0,
 ) -> InlineKeyboardMarkup:
+    del_btn      = InlineKeyboardButton("🗑️ Удалить",  callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}")
     info_btn     = InlineKeyboardButton("ℹ️ Доп.инфа", callback_data=f"info:{chat_id}:{msg_id}")
     collapse_btn = InlineKeyboardButton("✖️ Свернуть", callback_data=f"collapse:{chat_id}:{msg_id}")
     if is_kk:
@@ -630,12 +632,12 @@ def make_expanded_keyboard(
                 InlineKeyboardButton(bot_label, callback_data=f"sw_bot:{chat_id}:{msg_id}"),
                 InlineKeyboardButton(kk_label,  callback_data=f"sw_kk:{chat_id}:{msg_id}"),
             ],
-            [info_btn],
+            [info_btn, del_btn],
             [collapse_btn],
         ])
     else:
         return InlineKeyboardMarkup([
-            [info_btn],
+            [info_btn, del_btn],
             [collapse_btn],
         ])
 
@@ -652,7 +654,10 @@ def make_info_keyboard(
             InlineKeyboardButton(d, callback_data=f"tog:{chat_id}:{msg_id}:desc"),
             InlineKeyboardButton(s, callback_data=f"tog:{chat_id}:{msg_id}:stats"),
         ],
-        [InlineKeyboardButton("💾 Сохранить", callback_data=f"save:{chat_id}:{msg_id}")],
+        [
+            InlineKeyboardButton("💾 Сохранить", callback_data=f"save:{chat_id}:{msg_id}"),
+            InlineKeyboardButton("🗑️ Удалить",   callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}"),
+        ],
         [InlineKeyboardButton("← Назад", callback_data=f"back:{chat_id}:{msg_id}")],
     ])
 
@@ -662,12 +667,14 @@ def settings_text(prefs: dict) -> str:
     s  = "✅" if prefs.get("stats")              else "☑️"
     ad = "✅" if prefs.get("auto_delete", False) else "☑️"
     ss = "✅" if prefs.get("show_sender", True)  else "☑️"
+    yt = "✅" if prefs.get("yt_enabled", False)  else "☑️"
     return (
         "⚙️ <b>Настройки</b>\n\n"
         f"{d} <b>Описание</b> — текст описания под видео\n"
         f"{s} <b>Статистика</b> — просмотры, лайки, комментарии\n"
         f"{ad} <b>Авто-удаление ссылок</b> — убирать твоё сообщение со ссылкой после скачивания\n"
-        f"{ss} <b>Показывать «Отправил:»</b> — имя отправителя в группах\n\n"
+        f"{ss} <b>Показывать «Отправил:»</b> — имя отправителя в группах\n"
+        f"{yt} <b>YouTube</b> — скачивать видео с YouTube и Shorts\n\n"
         "<i>Изменения применяются к следующим видео.</i>"
     )
 
@@ -677,6 +684,7 @@ def make_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
     s  = "✅" if prefs.get("stats")              else "☑️"
     ad = "✅" if prefs.get("auto_delete", False) else "☑️"
     ss = "✅" if prefs.get("show_sender", True)  else "☑️"
+    yt = "✅" if prefs.get("yt_enabled", False)  else "☑️"
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(f"{d} Описание",   callback_data="pref:desc"),
@@ -684,6 +692,7 @@ def make_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
         ],
         [InlineKeyboardButton(f"{ad} Авто-удаление ссылок",   callback_data="pref:auto_delete")],
         [InlineKeyboardButton(f"{ss} Показывать «Отправил:»", callback_data="pref:show_sender")],
+        [InlineKeyboardButton(f"{yt} YouTube",                 callback_data="pref:yt_enabled")],
     ])
 
 
@@ -827,6 +836,36 @@ async def process_and_send_video(
                             track_success(context.bot_data, uid)
                             return
 
+                # Instagram auth — сразу kk без сообщения об ошибке
+                if dl_error == "auth" and is_instagram:
+                    kk_url = to_kk_url(url)
+                    label  = get_platform_label(url)
+                    _sn, _su = sender_name, sender_username
+                    if _sn:
+                        _hdr = f'<b>{label} от <a href="https://t.me/{_su}">{_sn}</a></b>' if _su else f"<b>{label} от {_sn}</b>"
+                    else:
+                        _hdr = f"<b>{label}</b>"
+                    kk_text = f"{kk_url}\n\n{_hdr}\n\n🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+                    try:
+                        await status_msg.edit_text(
+                            kk_text, parse_mode=ParseMode.HTML,
+                            disable_web_page_preview=False,
+                            reply_markup=make_single_settings_keyboard(chat_id, status_msg.message_id),
+                        )
+                        context.bot_data[f"vid:{chat_id}:{status_msg.message_id}"] = {
+                            "url": url, "kk_url": kk_url, "is_kk": True, "kk_active": True,
+                            "file_id": None, "kk_msg_id": status_msg.message_id, "bot_msg_id": None,
+                            "title": "", "description": "", "stats_str": "",
+                            "show_desc": prefs["desc"], "show_stats": prefs["stats"],
+                            "show_sender": prefs.get("show_sender", True),
+                            "sender_name": sender_name, "sender_username": sender_username,
+                            "sender_user_id": sender_user_id,
+                            "duration": None, "width": None, "height": None, "reply_to": reply_to,
+                        }
+                    except TelegramError:
+                        pass
+                    return
+
                 # Конкретное сообщение об ошибке
                 if dl_error == "auth":
                     err_text = (
@@ -866,6 +905,11 @@ async def process_and_send_video(
                         "🔗 Попробовать через kk",
                         callback_data=f"try_kk:{chat_id}:{status_msg.message_id}:{uid}"
                     ))
+                # Всегда добавляем Удалить
+                buttons.append(InlineKeyboardButton(
+                    "🗑️ Удалить",
+                    callback_data=f"del_status:{chat_id}:{status_msg.message_id}:{uid}"
+                ))
                 await status_msg.edit_text(
                     err_text,
                     parse_mode=ParseMode.HTML,
@@ -1055,7 +1099,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if action == "pref":
         sub   = parts[1]
         prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
-        if sub in ("desc", "stats", "auto_delete", "show_sender"):
+        if sub in ("desc", "stats", "auto_delete", "show_sender", "yt_enabled"):
             prefs[sub] = not prefs.get(sub, DEFAULT_PREFS.get(sub, False))
         context.user_data["prefs"] = prefs
         await query.edit_message_text(
@@ -1552,6 +1596,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 "Отправь ссылку на YouTube, TikTok, Instagram и т.д.",
             )
         return
+
+    # YouTube — проверяем настройку пользователя
+    prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+    if is_youtube(url) and not prefs.get("yt_enabled", False):
+        return  # тихо игнорируем
 
     # Имя отправителя — всегда, в любом типе чата
     sender_name = sender_username = ""
