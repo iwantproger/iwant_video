@@ -1,0 +1,1448 @@
+BEGIN:VCALENDAR
+PRODID:-//E-DIARY//E-DIARY 1.0//RU
+METHOD:PUBLISH
+VERSION:2.0
+X-Built-On-Cache-Miss:true
+CALSCALE:GREGORIAN
+X-WR-CALNAME;VALUE=TEXT:F1News.ru - Календарь Гран При Формулы 1 2026 года
+BEGIN:VEVENT
+SUMMARY:Гран При Австралии. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Австралии. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260306T013000Z
+DTEND:20260306T023000Z
+LOCATION:Мельбурн\, Австралия
+UID:f1-2026-australia-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австралии. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Австралии. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260306T050000Z
+DTEND:20260306T060000Z
+LOCATION:Мельбурн\, Австралия
+UID:f1-2026-australia-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австралии. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Австралии. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260307T013000Z
+DTEND:20260307T023000Z
+LOCATION:Мельбурн\, Австралия
+UID:f1-2026-australia-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австралии. Квалификация
+DESCRIPTION:Гран При Австралии. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260307T050000Z
+DTEND:20260307T060000Z
+LOCATION:Мельбурн\, Австралия
+UID:f1-2026-australia-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австралии. Гонка
+DESCRIPTION:Гран При Австралии. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260308T040000Z
+DTEND:20260308T060000Z
+LOCATION:Мельбурн\, Австралия
+UID:f1-2026-australia-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Китая. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Китая. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260313T033000Z
+DTEND:20260313T043000Z
+LOCATION:Шанхай\, Китай
+UID:f1-2026-china-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Китая. Квалификация к спринту
+DESCRIPTION:Гран При Китая. Квалификация к спринту
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260313T073000Z
+DTEND:20260313T081400Z
+LOCATION:Шанхай\, Китай
+UID:f1-2026-china-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Китая. Спринт
+DESCRIPTION:Гран При Китая. Спринт
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260314T030000Z
+DTEND:20260314T040000Z
+LOCATION:Шанхай\, Китай
+UID:f1-2026-china-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Китая. Квалификация
+DESCRIPTION:Гран При Китая. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260314T070000Z
+DTEND:20260314T080000Z
+LOCATION:Шанхай\, Китай
+UID:f1-2026-china-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Китая. Гонка
+DESCRIPTION:Гран При Китая. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260315T070000Z
+DTEND:20260315T090000Z
+LOCATION:Шанхай\, Китай
+UID:f1-2026-china-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Японии. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Японии. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260327T023000Z
+DTEND:20260327T033000Z
+LOCATION:Сузука\, Япония
+UID:f1-2026-japan-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Японии. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Японии. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260327T060000Z
+DTEND:20260327T070000Z
+LOCATION:Сузука\, Япония
+UID:f1-2026-japan-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Японии. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Японии. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260328T023000Z
+DTEND:20260328T033000Z
+LOCATION:Сузука\, Япония
+UID:f1-2026-japan-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Японии. Квалификация
+DESCRIPTION:Гран При Японии. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260328T060000Z
+DTEND:20260328T070000Z
+LOCATION:Сузука\, Япония
+UID:f1-2026-japan-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Японии. Гонка
+DESCRIPTION:Гран При Японии. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260329T050000Z
+DTEND:20260329T070000Z
+LOCATION:Сузука\, Япония
+UID:f1-2026-japan-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бахрейна. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Бахрейна. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260410T113000Z
+DTEND:20260410T123000Z
+LOCATION:Сахир\, Бахрейн
+UID:f1-2026-bahrain-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бахрейна. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Бахрейна. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260410T150000Z
+DTEND:20260410T160000Z
+LOCATION:Сахир\, Бахрейн
+UID:f1-2026-bahrain-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бахрейна. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Бахрейна. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260411T123000Z
+DTEND:20260411T133000Z
+LOCATION:Сахир\, Бахрейн
+UID:f1-2026-bahrain-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бахрейна. Квалификация
+DESCRIPTION:Гран При Бахрейна. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260411T160000Z
+DTEND:20260411T170000Z
+LOCATION:Сахир\, Бахрейн
+UID:f1-2026-bahrain-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бахрейна. Гонка
+DESCRIPTION:Гран При Бахрейна. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260412T150000Z
+DTEND:20260412T170000Z
+LOCATION:Сахир\, Бахрейн
+UID:f1-2026-bahrain-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Саудовской Аравии. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Саудовской Аравии. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260417T133000Z
+DTEND:20260417T143000Z
+LOCATION:Джидда\, Саудовская Аравия
+UID:f1-2026-saudi-arabia-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Саудовской Аравии. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Саудовской Аравии. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260417T170000Z
+DTEND:20260417T180000Z
+LOCATION:Джидда\, Саудовская Аравия
+UID:f1-2026-saudi-arabia-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Саудовской Аравии. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Саудовской Аравии. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260418T133000Z
+DTEND:20260418T143000Z
+LOCATION:Джидда\, Саудовская Аравия
+UID:f1-2026-saudi-arabia-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Саудовской Аравии. Квалификация
+DESCRIPTION:Гран При Саудовской Аравии. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260418T170000Z
+DTEND:20260418T180000Z
+LOCATION:Джидда\, Саудовская Аравия
+UID:f1-2026-saudi-arabia-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Саудовской Аравии. Гонка
+DESCRIPTION:Гран При Саудовской Аравии. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260419T170000Z
+DTEND:20260419T190000Z
+LOCATION:Джидда\, Саудовская Аравия
+UID:f1-2026-saudi-arabia-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Майами. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Майами. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260501T163000Z
+DTEND:20260501T173000Z
+LOCATION:Майами\, США
+UID:f1-2026-miami-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Майами. Квалификация к спринту
+DESCRIPTION:Гран При Майами. Квалификация к спринту
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260501T203000Z
+DTEND:20260501T211400Z
+LOCATION:Майами\, США
+UID:f1-2026-miami-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Майами. Спринт
+DESCRIPTION:Гран При Майами. Спринт
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260502T160000Z
+DTEND:20260502T170000Z
+LOCATION:Майами\, США
+UID:f1-2026-miami-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Майами. Квалификация
+DESCRIPTION:Гран При Майами. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260502T200000Z
+DTEND:20260502T210000Z
+LOCATION:Майами\, США
+UID:f1-2026-miami-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Майами. Гонка
+DESCRIPTION:Гран При Майами. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260503T200000Z
+DTEND:20260503T220000Z
+LOCATION:Майами\, США
+UID:f1-2026-miami-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Канады. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Канады. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260522T163000Z
+DTEND:20260522T173000Z
+LOCATION:Монреаль\, Канада
+UID:f1-2026-canada-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Канады. Квалификация к спринту
+DESCRIPTION:Гран При Канады. Квалификация к спринту
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260522T203000Z
+DTEND:20260522T211400Z
+LOCATION:Монреаль\, Канада
+UID:f1-2026-canada-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Канады. Спринт
+DESCRIPTION:Гран При Канады. Спринт
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260523T160000Z
+DTEND:20260523T170000Z
+LOCATION:Монреаль\, Канада
+UID:f1-2026-canada-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Канады. Квалификация
+DESCRIPTION:Гран При Канады. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260523T200000Z
+DTEND:20260523T210000Z
+LOCATION:Монреаль\, Канада
+UID:f1-2026-canada-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Канады. Гонка
+DESCRIPTION:Гран При Канады. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260524T200000Z
+DTEND:20260524T220000Z
+LOCATION:Монреаль\, Канада
+UID:f1-2026-canada-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Монако. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Монако. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260605T113000Z
+DTEND:20260605T123000Z
+LOCATION:Монте-Карло\, Монако
+UID:f1-2026-monaco-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Монако. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Монако. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260605T150000Z
+DTEND:20260605T160000Z
+LOCATION:Монте-Карло\, Монако
+UID:f1-2026-monaco-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Монако. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Монако. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260606T103000Z
+DTEND:20260606T113000Z
+LOCATION:Монте-Карло\, Монако
+UID:f1-2026-monaco-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Монако. Квалификация
+DESCRIPTION:Гран При Монако. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260606T140000Z
+DTEND:20260606T150000Z
+LOCATION:Монте-Карло\, Монако
+UID:f1-2026-monaco-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Монако. Гонка
+DESCRIPTION:Гран При Монако. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260607T130000Z
+DTEND:20260607T150000Z
+LOCATION:Монте-Карло\, Монако
+UID:f1-2026-monaco-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Барселоны-Каталонии. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Барселоны-Каталонии. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260612T113000Z
+DTEND:20260612T123000Z
+LOCATION:Барселона\, Испания
+UID:f1-2026-barcelona-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Барселоны-Каталонии. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Барселоны-Каталонии. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260612T150000Z
+DTEND:20260612T160000Z
+LOCATION:Барселона\, Испания
+UID:f1-2026-barcelona-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Барселоны-Каталонии. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Барселоны-Каталонии. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260613T103000Z
+DTEND:20260613T113000Z
+LOCATION:Барселона\, Испания
+UID:f1-2026-barcelona-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Барселоны-Каталонии. Квалификация
+DESCRIPTION:Гран При Барселоны-Каталонии. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260613T140000Z
+DTEND:20260613T150000Z
+LOCATION:Барселона\, Испания
+UID:f1-2026-barcelona-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Барселоны-Каталонии. Гонка
+DESCRIPTION:Гран При Барселоны-Каталонии. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260614T130000Z
+DTEND:20260614T150000Z
+LOCATION:Барселона\, Испания
+UID:f1-2026-barcelona-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австрии. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Австрии. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260626T113000Z
+DTEND:20260626T123000Z
+LOCATION:Шпильберг\, Австрия
+UID:f1-2026-austria-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австрии. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Австрии. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260626T150000Z
+DTEND:20260626T160000Z
+LOCATION:Шпильберг\, Австрия
+UID:f1-2026-austria-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австрии. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Австрии. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260627T103000Z
+DTEND:20260627T113000Z
+LOCATION:Шпильберг\, Австрия
+UID:f1-2026-austria-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австрии. Квалификация
+DESCRIPTION:Гран При Австрии. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260627T140000Z
+DTEND:20260627T150000Z
+LOCATION:Шпильберг\, Австрия
+UID:f1-2026-austria-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Австрии. Гонка
+DESCRIPTION:Гран При Австрии. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260628T130000Z
+DTEND:20260628T150000Z
+LOCATION:Шпильберг\, Австрия
+UID:f1-2026-austria-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Великобритании. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Великобритании. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260703T113000Z
+DTEND:20260703T123000Z
+LOCATION:Сильверстоун\, Великобритания
+UID:f1-2026-britain-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Великобритании. Квалификация к спринту
+DESCRIPTION:Гран При Великобритании. Квалификация к спринту
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260703T153000Z
+DTEND:20260703T161400Z
+LOCATION:Сильверстоун\, Великобритания
+UID:f1-2026-britain-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Великобритании. Спринт
+DESCRIPTION:Гран При Великобритании. Спринт
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260704T110000Z
+DTEND:20260704T120000Z
+LOCATION:Сильверстоун\, Великобритания
+UID:f1-2026-britain-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Великобритании. Квалификация
+DESCRIPTION:Гран При Великобритании. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260704T150000Z
+DTEND:20260704T160000Z
+LOCATION:Сильверстоун\, Великобритания
+UID:f1-2026-britain-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Великобритании. Гонка
+DESCRIPTION:Гран При Великобритании. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260705T140000Z
+DTEND:20260705T160000Z
+LOCATION:Сильверстоун\, Великобритания
+UID:f1-2026-britain-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бельгии. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Бельгии. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260717T113000Z
+DTEND:20260717T123000Z
+LOCATION:Спа\, Бельгия
+UID:f1-2026-belgium-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бельгии. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Бельгии. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260717T150000Z
+DTEND:20260717T160000Z
+LOCATION:Спа\, Бельгия
+UID:f1-2026-belgium-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бельгии. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Бельгии. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260718T103000Z
+DTEND:20260718T113000Z
+LOCATION:Спа\, Бельгия
+UID:f1-2026-belgium-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бельгии. Квалификация
+DESCRIPTION:Гран При Бельгии. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260718T140000Z
+DTEND:20260718T150000Z
+LOCATION:Спа\, Бельгия
+UID:f1-2026-belgium-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Бельгии. Гонка
+DESCRIPTION:Гран При Бельгии. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260719T130000Z
+DTEND:20260719T150000Z
+LOCATION:Спа\, Бельгия
+UID:f1-2026-belgium-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Венгрии. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Венгрии. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260724T113000Z
+DTEND:20260724T123000Z
+LOCATION:Будапешт\, Венгрия
+UID:f1-2026-hungary-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Венгрии. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Венгрии. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260724T150000Z
+DTEND:20260724T160000Z
+LOCATION:Будапешт\, Венгрия
+UID:f1-2026-hungary-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Венгрии. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Венгрии. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260725T103000Z
+DTEND:20260725T113000Z
+LOCATION:Будапешт\, Венгрия
+UID:f1-2026-hungary-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Венгрии. Квалификация
+DESCRIPTION:Гран При Венгрии. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260725T140000Z
+DTEND:20260725T150000Z
+LOCATION:Будапешт\, Венгрия
+UID:f1-2026-hungary-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Венгрии. Гонка
+DESCRIPTION:Гран При Венгрии. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260726T130000Z
+DTEND:20260726T150000Z
+LOCATION:Будапешт\, Венгрия
+UID:f1-2026-hungary-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Нидерландов. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Нидерландов. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260821T103000Z
+DTEND:20260821T113000Z
+LOCATION:Зандфорт\, Нидерланды
+UID:f1-2026-netherlands-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Нидерландов. Квалификация к спринту
+DESCRIPTION:Гран При Нидерландов. Квалификация к спринту
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260821T143000Z
+DTEND:20260821T151400Z
+LOCATION:Зандфорт\, Нидерланды
+UID:f1-2026-netherlands-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Нидерландов. Спринт
+DESCRIPTION:Гран При Нидерландов. Спринт
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260822T100000Z
+DTEND:20260822T110000Z
+LOCATION:Зандфорт\, Нидерланды
+UID:f1-2026-netherlands-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Нидерландов. Квалификация
+DESCRIPTION:Гран При Нидерландов. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260822T140000Z
+DTEND:20260822T150000Z
+LOCATION:Зандфорт\, Нидерланды
+UID:f1-2026-netherlands-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Нидерландов. Гонка
+DESCRIPTION:Гран При Нидерландов. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260823T130000Z
+DTEND:20260823T150000Z
+LOCATION:Зандфорт\, Нидерланды
+UID:f1-2026-netherlands-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Италии. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Италии. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260904T103000Z
+DTEND:20260904T113000Z
+LOCATION:Монца\, Италия
+UID:f1-2026-italy-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Италии. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Италии. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260904T140000Z
+DTEND:20260904T150000Z
+LOCATION:Монца\, Италия
+UID:f1-2026-italy-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Италии. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Италии. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260905T103000Z
+DTEND:20260905T113000Z
+LOCATION:Монца\, Италия
+UID:f1-2026-italy-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Италии. Квалификация
+DESCRIPTION:Гран При Италии. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260905T140000Z
+DTEND:20260905T150000Z
+LOCATION:Монца\, Италия
+UID:f1-2026-italy-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Италии. Гонка
+DESCRIPTION:Гран При Италии. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260906T130000Z
+DTEND:20260906T150000Z
+LOCATION:Монца\, Италия
+UID:f1-2026-italy-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Испании. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Испании. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260911T113000Z
+DTEND:20260911T123000Z
+LOCATION:Мадрид\, Испания
+UID:f1-2026-spain-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Испании. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Испании. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260911T150000Z
+DTEND:20260911T160000Z
+LOCATION:Мадрид\, Испания
+UID:f1-2026-spain-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Испании. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Испании. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260912T103000Z
+DTEND:20260912T113000Z
+LOCATION:Мадрид\, Испания
+UID:f1-2026-spain-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Испании. Квалификация
+DESCRIPTION:Гран При Испании. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260912T140000Z
+DTEND:20260912T150000Z
+LOCATION:Мадрид\, Испания
+UID:f1-2026-spain-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Испании. Гонка
+DESCRIPTION:Гран При Испании. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260913T130000Z
+DTEND:20260913T150000Z
+LOCATION:Мадрид\, Испания
+UID:f1-2026-spain-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Азербайджана. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Азербайджана. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260924T083000Z
+DTEND:20260924T093000Z
+LOCATION:Баку\, Азербайджан
+UID:f1-2026-azerbaijan-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Азербайджана. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Азербайджана. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260924T120000Z
+DTEND:20260924T130000Z
+LOCATION:Баку\, Азербайджан
+UID:f1-2026-azerbaijan-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Азербайджана. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Азербайджана. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260925T083000Z
+DTEND:20260925T093000Z
+LOCATION:Баку\, Азербайджан
+UID:f1-2026-azerbaijan-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Азербайджана. Квалификация
+DESCRIPTION:Гран При Азербайджана. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260925T120000Z
+DTEND:20260925T130000Z
+LOCATION:Баку\, Азербайджан
+UID:f1-2026-azerbaijan-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Азербайджана. Гонка
+DESCRIPTION:Гран При Азербайджана. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20260926T110000Z
+DTEND:20260926T130000Z
+LOCATION:Баку\, Азербайджан
+UID:f1-2026-azerbaijan-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сингапура. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Сингапура. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261009T093000Z
+DTEND:20261009T103000Z
+LOCATION:Сингапур\, Сингапур
+UID:f1-2026-singapore-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сингапура. Квалификация к спринту
+DESCRIPTION:Гран При Сингапура. Квалификация к спринту
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261009T123000Z
+DTEND:20261009T131400Z
+LOCATION:Сингапур\, Сингапур
+UID:f1-2026-singapore-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сингапура. Спринт
+DESCRIPTION:Гран При Сингапура. Спринт
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261010T090000Z
+DTEND:20261010T100000Z
+LOCATION:Сингапур\, Сингапур
+UID:f1-2026-singapore-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сингапура. Квалификация
+DESCRIPTION:Гран При Сингапура. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261010T130000Z
+DTEND:20261010T140000Z
+LOCATION:Сингапур\, Сингапур
+UID:f1-2026-singapore-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сингапура. Гонка
+DESCRIPTION:Гран При Сингапура. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261011T120000Z
+DTEND:20261011T140000Z
+LOCATION:Сингапур\, Сингапур
+UID:f1-2026-singapore-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При США. 1-я сессия свободных заездов
+DESCRIPTION:Гран При США. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261023T173000Z
+DTEND:20261023T183000Z
+LOCATION:Остин\, США
+UID:f1-2026-usa-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При США. 2-я сессия свободных заездов
+DESCRIPTION:Гран При США. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261023T210000Z
+DTEND:20261023T220000Z
+LOCATION:Остин\, США
+UID:f1-2026-usa-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При США. 3-я сессия свободных заездов
+DESCRIPTION:Гран При США. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261024T173000Z
+DTEND:20261024T183000Z
+LOCATION:Остин\, США
+UID:f1-2026-usa-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При США. Квалификация
+DESCRIPTION:Гран При США. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261024T210000Z
+DTEND:20261024T220000Z
+LOCATION:Остин\, США
+UID:f1-2026-usa-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При США. Гонка
+DESCRIPTION:Гран При США. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261025T200000Z
+DTEND:20261025T220000Z
+LOCATION:Остин\, США
+UID:f1-2026-usa-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Мехико. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Мехико. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261030T183000Z
+DTEND:20261030T193000Z
+LOCATION:Мехико\, Мексика
+UID:f1-2026-mexico-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Мехико. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Мехико. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261030T220000Z
+DTEND:20261030T230000Z
+LOCATION:Мехико\, Мексика
+UID:f1-2026-mexico-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Мехико. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Мехико. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261031T173000Z
+DTEND:20261031T183000Z
+LOCATION:Мехико\, Мексика
+UID:f1-2026-mexico-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Мехико. Квалификация
+DESCRIPTION:Гран При Мехико. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261031T210000Z
+DTEND:20261031T220000Z
+LOCATION:Мехико\, Мексика
+UID:f1-2026-mexico-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Мехико. Гонка
+DESCRIPTION:Гран При Мехико. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261101T200000Z
+DTEND:20261101T220000Z
+LOCATION:Мехико\, Мексика
+UID:f1-2026-mexico-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сан-Паулу. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Сан-Паулу. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261106T143000Z
+DTEND:20261106T153000Z
+LOCATION:Сан-Паулу\, Бразилия
+UID:f1-2026-saopaulo-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сан-Паулу. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Сан-Паулу. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261106T190000Z
+DTEND:20261106T200000Z
+LOCATION:Сан-Паулу\, Бразилия
+UID:f1-2026-saopaulo-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сан-Паулу. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Сан-Паулу. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261107T140000Z
+DTEND:20261107T150000Z
+LOCATION:Сан-Паулу\, Бразилия
+UID:f1-2026-saopaulo-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сан-Паулу. Квалификация
+DESCRIPTION:Гран При Сан-Паулу. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261107T180000Z
+DTEND:20261107T190000Z
+LOCATION:Сан-Паулу\, Бразилия
+UID:f1-2026-saopaulo-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Сан-Паулу. Гонка
+DESCRIPTION:Гран При Сан-Паулу. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261108T170000Z
+DTEND:20261108T190000Z
+LOCATION:Сан-Паулу\, Бразилия
+UID:f1-2026-saopaulo-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Лас-Вегаса. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Лас-Вегаса. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261120T003000Z
+DTEND:20261120T013000Z
+LOCATION:Лас-Вегас\, США
+UID:f1-2026-las-vegas-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Лас-Вегаса. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Лас-Вегаса. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261120T040000Z
+DTEND:20261120T050000Z
+LOCATION:Лас-Вегас\, США
+UID:f1-2026-las-vegas-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Лас-Вегаса. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Лас-Вегаса. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261121T003000Z
+DTEND:20261121T013000Z
+LOCATION:Лас-Вегас\, США
+UID:f1-2026-las-vegas-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Лас-Вегаса. Квалификация
+DESCRIPTION:Гран При Лас-Вегаса. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261121T040000Z
+DTEND:20261121T050000Z
+LOCATION:Лас-Вегас\, США
+UID:f1-2026-las-vegas-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Лас-Вегаса. Гонка
+DESCRIPTION:Гран При Лас-Вегаса. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261122T040000Z
+DTEND:20261122T060000Z
+LOCATION:Лас-Вегас\, США
+UID:f1-2026-las-vegas-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Катара. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Катара. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261127T133000Z
+DTEND:20261127T143000Z
+LOCATION:Лосаил\, Катар
+UID:f1-2026-qatar-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Катара. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Катара. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261127T170000Z
+DTEND:20261127T180000Z
+LOCATION:Лосаил\, Катар
+UID:f1-2026-qatar-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Катара. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Катара. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261128T143000Z
+DTEND:20261128T153000Z
+LOCATION:Лосаил\, Катар
+UID:f1-2026-qatar-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Катара. Квалификация
+DESCRIPTION:Гран При Катара. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261128T180000Z
+DTEND:20261128T190000Z
+LOCATION:Лосаил\, Катар
+UID:f1-2026-qatar-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Катара. Гонка
+DESCRIPTION:Гран При Катара. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261129T160000Z
+DTEND:20261129T180000Z
+LOCATION:Лосаил\, Катар
+UID:f1-2026-qatar-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Абу-Даби. 1-я сессия свободных заездов
+DESCRIPTION:Гран При Абу-Даби. 1-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261204T093000Z
+DTEND:20261204T103000Z
+LOCATION:Яс-Марина\, Абу-Даби
+UID:f1-2026-abudhabi-1@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Абу-Даби. 2-я сессия свободных заездов
+DESCRIPTION:Гран При Абу-Даби. 2-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261204T130000Z
+DTEND:20261204T140000Z
+LOCATION:Яс-Марина\, Абу-Даби
+UID:f1-2026-abudhabi-2@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Абу-Даби. 3-я сессия свободных заездов
+DESCRIPTION:Гран При Абу-Даби. 3-я сессия свободных заездов
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261205T103000Z
+DTEND:20261205T113000Z
+LOCATION:Яс-Марина\, Абу-Даби
+UID:f1-2026-abudhabi-3@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Абу-Даби. Квалификация
+DESCRIPTION:Гран При Абу-Даби. Квалификация
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261205T140000Z
+DTEND:20261205T150000Z
+LOCATION:Яс-Марина\, Абу-Даби
+UID:f1-2026-abudhabi-4@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Гран При Абу-Даби. Гонка
+DESCRIPTION:Гран При Абу-Даби. Гонка
+LAST-MODIFIED:20260226T071750Z
+DTSTAMP:20260226T071750Z
+DTSTART:20261206T130000Z
+DTEND:20261206T150000Z
+LOCATION:Яс-Марина\, Абу-Даби
+UID:f1-2026-abudhabi-5@f1news.ru
+CLASS:PUBLIC
+URL:https://www.f1news.ru/lc/
+END:VEVENT
+END:VCALENDAR

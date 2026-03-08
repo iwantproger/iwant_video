@@ -1,3 +1,5 @@
-python-telegram-bot[job-queue]==21.5
-yt-dlp>=2026.3.3
-requests
+python-telegram-bot==21.5
+icalendar==5.0.13
+pytz==2024.1
+APScheduler==3.10.4
+aiohttp==3.9.5
