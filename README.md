@@ -1,4 +1,4 @@
-# 🎬 Бот, смотри прикол! — Telegram бот для скачивания видео
+# 🎬 VideoBot — Telegram бот для скачивания видео
 
 Бот автоматически скачивает видео из YouTube, TikTok, Instagram, Twitter/X, Vimeo, Reddit и других сервисов, поддерживаемых [yt-dlp](https://github.com/yt-dlp/yt-dlp), и отправляет их прямо в Telegram.
 
