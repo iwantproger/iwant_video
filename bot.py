@@ -204,32 +204,28 @@ def track_user(bot_data: dict, user_id: int) -> None:
 
 
 # ─── URL-утилиты ──────────────────────────────────────────────────────────────
+# Бот работает ТОЛЬКО с Instagram, TikTok и YouTube
+# kk-ссылки (kkinstagram.com, kktiktok.com) игнорируются
 URL_PATTERN = re.compile(
     r"(https?://(?:www\.)?"
-    r"(?:youtube\.com/watch\?[^\s]+|youtu\.be/[^\s]+"
+    r"(?:"
+    r"youtube\.com/watch\?[^\s]+"
+    r"|youtu\.be/[^\s]+"
     r"|youtube\.com/shorts/[^\s]+"
+    r"|youtube\.com/live/[^\s]+"
     r"|instagram\.com/(?:p|reel|tv)/[^\s]+"
-    r"|tiktok\.com/[^\s]+"
-    r"|twitter\.com/[^\s]+/status/[^\s]+"
-    r"|x\.com/[^\s]+/status/[^\s]+"
-    r"|vimeo\.com/[^\s]+"
-    r"|reddit\.com/r/[^\s]+/comments/[^\s]+"
-    r"|twitch\.tv/[^\s]+"
-    r"|dailymotion\.com/video/[^\s]+"
-    r"|fb\.watch/[^\s]+"
-    r"|facebook\.com/[^\s]+/videos/[^\s]+"
-    r"|[^\s]+\.[a-z]{2,6}/[^\s]*))",
+    r"|vm\.tiktok\.com/[^\s]+"
+    r"|(?:www\.)?tiktok\.com/@[^\s]+/video/[^\s]+"
+    r"))"
+    r"(?!.*kkinstagram|.*kktiktok)",
     re.IGNORECASE,
 )
-GENERIC_URL_PATTERN = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 
 
 def extract_url(text: str) -> str | None:
+    """Возвращает ссылку только если она с Instagram, TikTok или YouTube (не kk-зеркала)."""
     m = URL_PATTERN.search(text)
-    if m:
-        return m.group(1)
-    m = GENERIC_URL_PATTERN.search(text)
-    return m.group(0) if m else None
+    return m.group(1) if m else None
 
 
 def is_url_only(text: str, url: str) -> bool:
@@ -1608,6 +1604,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 "🔍 Не нашёл ссылку.\n"
                 "Отправь ссылку на YouTube, TikTok, Instagram и т.д.",
             )
+        return
+
+    # kk-зеркала — игнорируем полностью
+    if re.search(r"kkinstagram\.com|kktiktok\.com", url, re.IGNORECASE):
         return
 
     # YouTube — проверяем настройку пользователя
