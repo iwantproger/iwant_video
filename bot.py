@@ -115,7 +115,8 @@ def _stats_empty() -> dict:
         "links_sent": 0,
         "success":    0,
         "failed":     0,
-        "per_user":   {},   # {"uid": {"sent": int, "success": int}}
+        "platforms":  {"instagram": 0, "tiktok": 0, "youtube": 0},
+        "per_user":   {},   # {"uid": {"sent": int, "success": int, "instagram": 0, "tiktok": 0, "youtube": 0, "name": ""}}
     }
 
 
@@ -162,7 +163,7 @@ def get_stats(bot_data: dict) -> dict:
     return bot_data["stats"]
 
 
-def track_request(bot_data: dict, user_id: int) -> None:
+def track_request(bot_data: dict, user_id: int, url: str = "", user_name: str = "") -> None:
     # Не учитываем действия администратора
     if ADMIN_USER_ID and user_id == ADMIN_USER_ID:
         return
@@ -171,8 +172,20 @@ def track_request(bot_data: dict, user_id: int) -> None:
     today = str(date.today())
     s["daily"].setdefault(today, set()).add(user_id)
     s["links_sent"] += 1
+    # Определяем платформу
+    platform = "other"
+    if re.search(r"instagram\.com", url, re.IGNORECASE): platform = "instagram"
+    elif re.search(r"tiktok\.com", url, re.IGNORECASE):  platform = "tiktok"
+    elif re.search(r"youtube\.com|youtu\.be", url, re.IGNORECASE): platform = "youtube"
+    if platform != "other":
+        s.setdefault("platforms", {"instagram": 0, "tiktok": 0, "youtube": 0})
+        s["platforms"][platform] = s["platforms"].get(platform, 0) + 1
     key = str(user_id)
-    s["per_user"].setdefault(key, {"sent": 0, "success": 0})["sent"] += 1
+    default = {"sent": 0, "success": 0, "instagram": 0, "tiktok": 0, "youtube": 0, "name": ""}
+    u = s["per_user"].setdefault(key, dict(default))
+    u["sent"] += 1
+    if platform != "other": u[platform] = u.get(platform, 0) + 1
+    if user_name: u["name"] = user_name
     save_stats(s)
 
 
@@ -182,7 +195,8 @@ def track_success(bot_data: dict, user_id: int) -> None:
     s = get_stats(bot_data)
     s["success"] += 1
     key = str(user_id)
-    s["per_user"].setdefault(key, {"sent": 0, "success": 0})["success"] += 1
+    default = {"sent": 0, "success": 0, "instagram": 0, "tiktok": 0, "youtube": 0, "name": ""}
+    s["per_user"].setdefault(key, dict(default))["success"] += 1
     save_stats(s)
 
 
@@ -713,7 +727,7 @@ async def process_and_send_video(
     prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
     uid     = sender_user_id or (update.effective_user.id if update.effective_user else 0)
 
-    track_request(context.bot_data, uid)
+    track_request(context.bot_data, uid, url=url, user_name=sender_name)
 
     # В группах принудительно убираем ReplyKeyboard (если вдруг появилась от старой версии)
     is_private = update.effective_chat.type == "private"
@@ -778,7 +792,7 @@ async def process_and_send_video(
                 return
 
             if r is None:
-                track_failed(context.bot_data)
+                # track_failed вызовется ниже, только если все fallback тоже провалились
 
                 # При auth-ошибке Instagram: пробуем GraphQL fallback
                 if dl_error == "auth" and is_instagram:
@@ -839,6 +853,8 @@ async def process_and_send_video(
                             return
 
                 # Instagram auth — сразу kk без сообщения об ошибке
+                # Здесь все попытки скачать исчерпаны
+                track_failed(context.bot_data)
                 if dl_error == "auth" and is_instagram:
                     kk_url = to_kk_url(url)
                     label  = get_platform_label(url)
@@ -1432,24 +1448,47 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     total_processed = ok + fail
     ok_pct          = round(ok   / total_processed * 100) if total_processed else 0
     fail_pct        = round(fail / total_processed * 100) if total_processed else 0
-    per_user        = s["per_user"]
-    avg_req = round(
+    # Платформы
+    pl = s.get("platforms", {"instagram": 0, "tiktok": 0, "youtube": 0})
+    pl_ig = pl.get("instagram", 0)
+    pl_tt = pl.get("tiktok", 0)
+    pl_yt = pl.get("youtube", 0)
+    # Топ пользователей
+    per_user = s["per_user"]
+    avg_req  = round(
         sum(v["sent"] for v in per_user.values()) / len(per_user), 1
     ) if per_user else 0
-    top5 = sorted(per_user.items(), key=lambda x: x[1]["sent"], reverse=True)[:5]
-    top5_lines = "\n".join(
-        f"  {i+1}. <code>{uid}</code> — {v['sent']} запр., {v['success']} успешно"
-        for i, (uid, v) in enumerate(top5)
-    ) or "  нет данных"
+    top10 = sorted(per_user.items(), key=lambda x: x[1]["sent"], reverse=True)[:10]
+    top_lines = []
+    for i, (uid, v) in enumerate(top10):
+        name    = v.get("name", "") or f"id:{uid}"
+        ig      = v.get("instagram", 0)
+        tt      = v.get("tiktok", 0)
+        yt      = v.get("youtube", 0)
+        ok_u    = v.get("success", 0)
+        sent_u  = v.get("sent", 0)
+        details = " | ".join(filter(None, [
+            f"📸{ig}" if ig else "",
+            f"🎵{tt}" if tt else "",
+            f"▶️{yt}" if yt else "",
+        ])) or "—"
+        top_lines.append(
+            f"  {i+1}. <b>{name}</b> — {sent_u} запр. / {ok_u} ✅\n"
+            f"      {details}"
+        )
+    top_text = "\n".join(top_lines) or "  нет данных"
     await update.message.reply_text(
         f"📊 <b>Статистика бота</b>\n\n"
-        f"👥 Всего пользователей: <b>{total}</b>\n"
-        f"🟢 Активных сегодня: <b>{active}</b>\n\n"
-        f"🔗 Ссылок отправлено: <b>{sent}</b>\n"
+        f"👥 Пользователей: <b>{total}</b>  (сегодня активных: <b>{active}</b>)\n\n"
+        f"🔗 Всего запросов: <b>{sent}</b>\n"
         f"✅ Успешно: <b>{ok}</b> ({ok_pct}%)\n"
-        f"❌ Не удалось: <b>{fail}</b> ({fail_pct}%)\n\n"
-        f"📈 Среднее запросов/пользователь: <b>{avg_req}</b>\n\n"
-        f"🏆 Топ-5:\n{top5_lines}\n\n"
+        f"❌ Неудачно: <b>{fail}</b> ({fail_pct}%)\n\n"
+        f"📱 По платформам:\n"
+        f"  📸 Instagram: <b>{pl_ig}</b>\n"
+        f"  🎵 TikTok: <b>{pl_tt}</b>\n"
+        f"  ▶️ YouTube: <b>{pl_yt}</b>\n\n"
+        f"📈 Среднее запросов/польз.: <b>{avg_req}</b>\n\n"
+        f"🏆 Топ-10 пользователей:\n{top_text}\n\n"
         f"<i>Статистика сохраняется между перезапусками.</i>",
         parse_mode=ParseMode.HTML,
     )

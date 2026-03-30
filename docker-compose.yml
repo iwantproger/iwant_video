@@ -1,14 +1,9 @@
 version: "3.8"
+
 services:
   videobot:
     build: .
     restart: unless-stopped
     env_file: .env
     volumes:
-      - /tmp/videobot:/tmp
       - ./data:/app/data
-```
-
-И обнови `.env` — измени STATS_FILE:
-```
-STATS_FILE=data/stats.json
