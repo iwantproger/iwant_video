@@ -620,17 +620,27 @@ def make_kk_keyboard(
     chat_id: int, msg_id: int,
     sender_user_id: int = 0,
     has_file: bool = False,
+    expanded: bool = False,
 ) -> InlineKeyboardMarkup:
-    """Клавиатура под kk-сообщением. Кнопка 'Видео файл' появляется когда файл скачан."""
-    del_btn = InlineKeyboardButton("🗑️ Удалить", callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}")
-    rows = []
-    if has_file:
-        rows.append([InlineKeyboardButton(
-            "📹 Видео файл",
-            callback_data=f"show_file:{chat_id}:{msg_id}"
-        )])
-    rows.append([del_btn])
-    return InlineKeyboardMarkup(rows)
+    """Клавиатура под kk-сообщением."""
+    gear_btn    = InlineKeyboardButton("⚙️",          callback_data=f"kk_open:{chat_id}:{msg_id}")
+    del_btn     = InlineKeyboardButton("🗑️ Удалить",  callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}")
+    collapse_btn= InlineKeyboardButton("✖️ Свернуть", callback_data=f"kk_close:{chat_id}:{msg_id}")
+    file_btn    = InlineKeyboardButton("📹 Видео файл", callback_data=f"show_file:{chat_id}:{msg_id}")
+
+    if expanded:
+        rows = []
+        if has_file:
+            rows.append([file_btn])
+        rows.append([del_btn])
+        rows.append([collapse_btn])
+        return InlineKeyboardMarkup(rows)
+    else:
+        # Свёрнутый вид
+        if has_file:
+            return InlineKeyboardMarkup([[file_btn, gear_btn]])
+        else:
+            return InlineKeyboardMarkup([[gear_btn]])
 
 
 def make_cancel_keyboard(chat_id: int, status_msg_id: int) -> InlineKeyboardMarkup:
@@ -752,24 +762,39 @@ async def _bg_download_and_offer_file(
     tmpdir = tempfile.mkdtemp()
     try:
         loop = asyncio.get_event_loop()
-        r, _ = await loop.run_in_executor(None, download_video, url, tmpdir, None, None)
+        r, dl_err = await loop.run_in_executor(None, download_video, url, tmpdir, None, None)
+        # Для Instagram при auth-ошибке — пробуем GraphQL
+        if not r and dl_err == "auth" and re.search(r"instagram\.com", url, re.IGNORECASE):
+            gql = await loop.run_in_executor(None, instagram_graphql_download, url, tmpdir)
+            if gql and isinstance(gql, tuple):
+                r, _ = gql
         if not r:
             return
 
+        # Проверяем размер — Telegram принимает максимум 50 МБ
+        file_size = Path(r["path"]).stat().st_size
+        if file_size > MAX_FILE_SIZE_BYTES:
+            logger.info(f"bg_download: file too large ({file_size/1024/1024:.1f}MB), skipping")
+            return
+
         # Загружаем видео в Telegram, чтобы получить file_id (отправляем и удаляем)
-        with open(r["path"], "rb") as vf:
-            hidden = await context.bot.send_video(
-                chat_id=chat_id, video=vf,
-                disable_notification=True,
-                duration=r.get("duration"),
-                width=r.get("width"), height=r.get("height"),
-                supports_streaming=True,
-            )
-        file_id = hidden.video.file_id if hidden.video else None
         try:
-            await context.bot.delete_message(chat_id=chat_id, message_id=hidden.message_id)
-        except TelegramError:
-            pass
+            with open(r["path"], "rb") as vf:
+                hidden = await context.bot.send_video(
+                    chat_id=chat_id, video=vf,
+                    disable_notification=True,
+                    duration=r.get("duration"),
+                    width=r.get("width"), height=r.get("height"),
+                    supports_streaming=True,
+                )
+            file_id = hidden.video.file_id if hidden.video else None
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=hidden.message_id)
+            except TelegramError:
+                pass
+        except TelegramError as e:
+            logger.info(f"bg_download: send failed ({e}), skipping")
+            return
 
         if not file_id:
             return
@@ -1348,6 +1373,26 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 pass
         except TelegramError as e:
             await query.answer(f"Ошибка: {e}", show_alert=True)
+        return
+
+    # ── Открыть/свернуть меню kk-сообщения ──────────────────────────────────────
+    if action in ("kk_open", "kk_close"):
+        key  = f"vid:{int(parts[1])}:{int(parts[2])}"
+        data = context.bot_data.get(key, {})
+        has_file = bool(data.get("file_id"))
+        sid = data.get("sender_user_id", 0)
+        expanded = (action == "kk_open")
+        try:
+            await query.edit_message_reply_markup(
+                reply_markup=make_kk_keyboard(
+                    int(parts[1]), int(parts[2]),
+                    sender_user_id=sid,
+                    has_file=has_file,
+                    expanded=expanded,
+                )
+            )
+        except TelegramError:
+            pass
         return
 
     # ── Удаление сообщения об ошибке ──────────────────────────────────────────
