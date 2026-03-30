@@ -7,3 +7,8 @@ services:
     volumes:
       - /tmp/videobot:/tmp
       - ./data:/app/data
+```
+
+И обнови `.env` — измени STATS_FILE:
+```
+STATS_FILE=data/stats.json
