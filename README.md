@@ -38,19 +38,6 @@ pip install -U yt-dlp
 ```
 
 ---
-
-## 🛠 Техническое устройство
-
-```
-bot.py                  — весь код бота
-requirements.txt        — зависимости Python
-Procfile               — команда запуска (Railway/Heroku)
-railway.json           — конфиг Railway
-nixpacks.toml          — установка ffmpeg на Railway
-Dockerfile             — Docker-образ
-docker-compose.yml     — запуск через Docker Compose
-.env.example           — пример переменных окружения
-.github/workflows/     — CI/CD через GitHub Actions
 ```
 
 **Стек:**
