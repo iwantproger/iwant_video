@@ -10,6 +10,7 @@ import time
 import logging
 import asyncio
 import tempfile
+import shutil
 import subprocess
 import threading
 from datetime import date
@@ -614,6 +615,24 @@ def build_caption(
 
 
 # ─── Inline-клавиатуры под видео ──────────────────────────────────────────────
+
+def make_kk_keyboard(
+    chat_id: int, msg_id: int,
+    sender_user_id: int = 0,
+    has_file: bool = False,
+) -> InlineKeyboardMarkup:
+    """Клавиатура под kk-сообщением. Кнопка 'Видео файл' появляется когда файл скачан."""
+    del_btn = InlineKeyboardButton("🗑️ Удалить", callback_data=f"del:{chat_id}:{msg_id}:{sender_user_id}")
+    rows = []
+    if has_file:
+        rows.append([InlineKeyboardButton(
+            "📹 Видео файл",
+            callback_data=f"show_file:{chat_id}:{msg_id}"
+        )])
+    rows.append([del_btn])
+    return InlineKeyboardMarkup(rows)
+
+
 def make_cancel_keyboard(chat_id: int, status_msg_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[
         InlineKeyboardButton("🚫 Отмена", callback_data=f"cancel:{chat_id}:{status_msg_id}"),
@@ -713,6 +732,199 @@ def make_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
 
 
 # ─── Отправка видео ────────────────────────────────────────────────────────────
+
+async def _bg_download_and_offer_file(
+    context,
+    chat_id: int,
+    kk_msg_id: int,
+    url: str,
+    sender_name: str,
+    sender_username: str,
+    sender_user_id: int,
+    prefs: dict,
+    reply_to: int | None,
+    uid: int,
+) -> None:
+    """
+    Фоновая задача: скачивает видео пока показывается kk-ссылка.
+    Если удалось — добавляет кнопку 'Видео файл' к kk-сообщению.
+    """
+    tmpdir = tempfile.mkdtemp()
+    try:
+        loop = asyncio.get_event_loop()
+        r, _ = await loop.run_in_executor(None, download_video, url, tmpdir, None, None)
+        if not r:
+            return
+
+        # Загружаем видео в Telegram, чтобы получить file_id (отправляем и удаляем)
+        with open(r["path"], "rb") as vf:
+            hidden = await context.bot.send_video(
+                chat_id=chat_id, video=vf,
+                disable_notification=True,
+                duration=r.get("duration"),
+                width=r.get("width"), height=r.get("height"),
+                supports_streaming=True,
+            )
+        file_id = hidden.video.file_id if hidden.video else None
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=hidden.message_id)
+        except TelegramError:
+            pass
+
+        if not file_id:
+            return
+
+        # Сохраняем данные о скачанном файле
+        key = f"vid:{chat_id}:{kk_msg_id}"
+        data = context.bot_data.get(key, {})
+        data["file_id"]     = file_id
+        data["dl_title"]    = r.get("title", "")
+        data["dl_desc"]     = r.get("description", "")
+        data["dl_stats"]    = build_stats_str(r)
+        data["dl_duration"] = r.get("duration")
+        data["dl_width"]    = r.get("width")
+        data["dl_height"]   = r.get("height")
+        context.bot_data[key] = data
+
+        # Добавляем кнопку "Видео файл" к kk-сообщению
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=chat_id, message_id=kk_msg_id,
+                reply_markup=make_kk_keyboard(
+                    chat_id, kk_msg_id,
+                    sender_user_id=sender_user_id,
+                    has_file=True,
+                ),
+            )
+        except TelegramError:
+            pass
+
+        track_success(context.bot_data, uid)
+        logger.info(f"bg_download: file ready for kk_msg_id={kk_msg_id}")
+
+    except Exception as e:
+        logger.error(f"_bg_download_and_offer_file error: {e}")
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+async def process_kk_platform(
+    update,
+    context,
+    url: str,
+    reply_to: int | None,
+    sender_name: str,
+    sender_username: str,
+    sender_user_id: int,
+    delete_source_msg_id: int | None,
+) -> None:
+    """
+    Для Instagram/TikTok: сначала мгновенно отправляем kk-ссылку,
+    параллельно скачиваем файл в фоне.
+    """
+    chat_id    = update.effective_chat.id
+    prefs      = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+    uid        = sender_user_id or (update.effective_user.id if update.effective_user else 0)
+    kk_url     = to_kk_url(url)
+    label      = get_platform_label(url)
+    is_private = update.effective_chat.type == "private"
+
+    track_request(context.bot_data, uid, url=url, user_name=sender_name)
+
+    # В группах убираем ReplyKeyboard
+    if not is_private and not context.bot_data.get(f"kb_removed:{chat_id}"):
+        context.bot_data[f"kb_removed:{chat_id}"] = True
+        try:
+            rm = await context.bot.send_message(
+                chat_id=chat_id, text=".",
+                reply_markup=ReplyKeyboardRemove(), disable_notification=True,
+            )
+            await context.bot.delete_message(chat_id=chat_id, message_id=rm.message_id)
+        except Exception:
+            pass
+
+    # Первый показ клавиатуры в личке
+    first_reply_markup = None
+    if is_private and not context.user_data.get("kb_sent"):
+        context.user_data["kb_sent"] = True
+        first_reply_markup = main_menu_keyboard(uid)
+
+    # Строим заголовок
+    if sender_name:
+        if sender_username:
+            hdr = f'<b>{label} от <a href="https://t.me/{sender_username}">{sender_name}</a></b>'
+        else:
+            hdr = f"<b>{label} от {sender_name}</b>"
+    else:
+        hdr = f"<b>{label}</b>"
+
+    kk_text = (
+        f"{kk_url}\n\n"
+        f"{hdr}\n\n"
+        f"🤖 <a href='{BOT_LINK}'>@{BOT_USERNAME}</a>"
+    )
+
+    # Отправляем kk-ссылку мгновенно
+    try:
+        kk_msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=kk_text,
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=False,
+            reply_to_message_id=reply_to,
+            reply_markup=first_reply_markup or make_kk_keyboard(chat_id, 0, sender_user_id),
+            disable_notification=True,
+        )
+        # Обновляем клавиатуру с правильным msg_id
+        await context.bot.edit_message_reply_markup(
+            chat_id=chat_id, message_id=kk_msg.message_id,
+            reply_markup=make_kk_keyboard(chat_id, kk_msg.message_id, sender_user_id),
+        )
+    except TelegramError as e:
+        logger.error(f"process_kk_platform send error: {e}")
+        return
+
+    kk_msg_id = kk_msg.message_id
+
+    # Сохраняем данные
+    context.bot_data[f"vid:{chat_id}:{kk_msg_id}"] = {
+        "url":             url,
+        "kk_url":          kk_url,
+        "is_kk":           True,
+        "kk_active":       True,
+        "file_id":         None,
+        "kk_msg_id":       kk_msg_id,
+        "bot_msg_id":      None,
+        "title":           "",
+        "description":     "",
+        "stats_str":       "",
+        "show_desc":       prefs["desc"],
+        "show_stats":      prefs["stats"],
+        "show_sender":     prefs.get("show_sender", True),
+        "sender_name":     sender_name,
+        "sender_username": sender_username,
+        "sender_user_id":  sender_user_id,
+        "duration":        None,
+        "width":           None,
+        "height":          None,
+        "reply_to":        reply_to,
+    }
+
+    # Авто-удаление исходного сообщения
+    if delete_source_msg_id and prefs.get("auto_delete", False):
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=delete_source_msg_id)
+        except TelegramError:
+            pass
+
+    # Запускаем фоновое скачивание
+    asyncio.create_task(_bg_download_and_offer_file(
+        context, chat_id, kk_msg_id, url,
+        sender_name, sender_username, sender_user_id,
+        prefs, reply_to, uid,
+    ))
+
+
 async def process_and_send_video(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -723,6 +935,14 @@ async def process_and_send_video(
     sender_user_id: int = 0,
     delete_source_msg_id: int | None = None,
 ) -> None:
+    # Instagram/TikTok → мгновенно kk + фоновое скачивание
+    if is_kk_platform(url):
+        await process_kk_platform(
+            update, context, url, reply_to,
+            sender_name, sender_username, sender_user_id, delete_source_msg_id,
+        )
+        return
+
     chat_id = update.effective_chat.id
     prefs   = context.user_data.get("prefs", dict(DEFAULT_PREFS))
     uid     = sender_user_id or (update.effective_user.id if update.effective_user else 0)
@@ -1067,6 +1287,67 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             )
         except TelegramError as e:
             logger.error(f"try_kk error: {e}")
+        return
+
+    # ── Показать видео файл (фоновая загрузка завершена) ────────────────────────
+    if action == "show_file":
+        if len(parts) < 3:
+            return
+        sf_chat_id, sf_msg_id = int(parts[1]), int(parts[2])
+        key  = f"vid:{sf_chat_id}:{sf_msg_id}"
+        data = context.bot_data.get(key)
+        if not data:
+            await query.answer("Данные устарели.", show_alert=True)
+            return
+        file_id = data.get("file_id")
+        if not file_id:
+            await query.answer("Файл ещё загружается, подожди...", show_alert=True)
+            return
+
+        prefs = context.user_data.get("prefs", dict(DEFAULT_PREFS))
+        caption = build_caption(
+            url=data["url"],
+            title=data.get("dl_title", ""),
+            description=data.get("dl_desc", ""),
+            stats_str=data.get("dl_stats", ""),
+            show_desc=data.get("show_desc", False),
+            show_stats=data.get("show_stats", False),
+            sender_name=data.get("sender_name", ""),
+            sender_username=data.get("sender_username", ""),
+            show_sender=data.get("show_sender", True),
+        )
+        try:
+            sent = await context.bot.send_video(
+                chat_id=sf_chat_id,
+                video=file_id,
+                caption=caption,
+                parse_mode=ParseMode.HTML,
+                duration=data.get("dl_duration"),
+                width=data.get("dl_width"),
+                height=data.get("dl_height"),
+                supports_streaming=True,
+                reply_to_message_id=data.get("reply_to"),
+                disable_notification=True,
+            )
+            new_msg_id = sent.message_id
+            # Обновляем данные под новое видео-сообщение
+            context.bot_data.pop(key, None)
+            new_data = dict(data)
+            new_data["kk_active"]  = False
+            new_data["bot_msg_id"] = new_msg_id
+            new_data["kk_msg_id"]  = None
+            context.bot_data[f"vid:{sf_chat_id}:{new_msg_id}"] = new_data
+            await context.bot.edit_message_reply_markup(
+                chat_id=sf_chat_id, message_id=new_msg_id,
+                reply_markup=make_single_settings_keyboard(sf_chat_id, new_msg_id),
+            )
+            # Удаляем kk-сообщение
+            try:
+                await context.bot.delete_message(chat_id=sf_chat_id, message_id=sf_msg_id)
+            except TelegramError:
+                pass
+        except TelegramError as e:
+            await query.answer(f"Ошибка: {e}", show_alert=True)
         return
 
     # ── Удаление сообщения об ошибке ──────────────────────────────────────────
